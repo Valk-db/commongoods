@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 const SecureStoreAdapter = {
   getItem:    (key: string)              => SecureStore.getItemAsync(key),
   setItem:    (key: string, val: string) => SecureStore.setItemAsync(key, val),
-  removeItem: (key: string)              => SecureStore.deleteItemAsync(key),
+  removeItem: (key: string)             => SecureStore.deleteItemAsync(key),
 };
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
