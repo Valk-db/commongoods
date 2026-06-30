@@ -26,6 +26,7 @@ export type Profile = {
   role: Role;
   full_name: string | null;
   phone: string | null;
+  is_admin: boolean;
   created_at: string;
 };
 
@@ -42,10 +43,17 @@ export type Delivery = {
   dropoff_address: string;
   dropoff_lat: number;
   dropoff_lng: number;
-  straight_line_distance_miles: number | null;
+  distance_miles: number | null;
   zone_assigned: 1 | 2 | 3 | null;
   fee_charged: number | null;
   driver_payout: number | null;
   platform_cut: number | null;
+  estimated_duration_minutes: number | null;
+  actual_duration_minutes: number | null;
+  route_polyline: string | null;
   requested_at: string;
+  claimed_at: string | null;
+  picked_up_at: string | null;
+  delivered_at: string | null;
+  notes: string | null;
 };
