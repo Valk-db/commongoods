@@ -152,14 +152,15 @@ export default function CustomerScreen() {
           cfg.ux.getCategories(),
           cfg.ux.getOutOfAreaMessage(),
         ]);
-        setCategories(cats || ['Auto Parts', 'Hardware', 'Pharmacy', 'Catering', 'Office Supply', 'Other']);
-        setCategory(cats?.[0] || 'Auto Parts');
+        if (!cats || cats.length === 0) {
+          throw new Error('Categories not configured');
+        }
+        setCategories(cats);
+        setCategory(cats[0]);
         setOutOfAreaMsg(msg || "Sorry, we don't deliver to this area yet.");
-      } catch {
-        // Fallback to defaults
-        setCategories(['Auto Parts', 'Hardware', 'Pharmacy', 'Catering', 'Office Supply', 'Other']);
-        setCategory('Auto Parts');
-        setOutOfAreaMsg("Sorry, we don't deliver to this area yet.");
+      } catch (err) {
+        console.error('Failed to load config:', err);
+        Alert.alert('Configuration Error', 'Unable to load delivery options. Please try again later.');
       }
     })();
   }, []);

@@ -1,36 +1,11 @@
 /**
- * Pricing Engine - Pure TypeScript Implementation
- * This is the SINGLE SOURCE OF TRUTH for pricing logic.
- * Used by: Edge Function (create_delivery), simulator, tests.
+ * Pricing Engine for Edge Functions
+ * Pure TypeScript implementation - single source of truth
+ * Used by: get_quote, create_delivery Edge Functions
  * SQL functions should ONLY validate stored results against this.
  */
 
-import type { PricingConfig, DriverPayConfig } from './config';
-
-export interface PricingInput {
-  distanceMiles: number;
-  estimatedDurationMinutes: number;
-  zone: 1 | 2 | 3;
-  isPeakHour: boolean;
-  weatherSurcharge: number;
-}
-
-export interface PricingComponent {
-  name: string;
-  amount: number;
-  description: string;
-  isAdjustment?: boolean;
-}
-
-export interface PricingResult {
-  customerTotal: number;
-  components: PricingComponent[];
-  platformCut: number;
-  driverPayout: number;
-  zone: number;
-  distanceMiles: number;
-  strategy: string;
-}
+import type { PricingConfig, PricingInput, PricingResult, PricingComponent } from './config.ts';
 
 /**
  * Check if current time falls within peak hours

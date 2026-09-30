@@ -339,7 +339,14 @@ Deno.serve(async (req: Request) => {
       p_at: new Date().toISOString()
     });
 
-    const maxDistance = configData || 20;
+    if (configError || configData === null || configData === undefined) {
+      return new Response(JSON.stringify({ success: false, error: "Config unavailable: max_distance_miles" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const maxDistance = configData;
     if (distanceMiles > maxDistance) {
       return new Response(JSON.stringify({ success: false, error: "OUTSIDE_SERVICE_AREA" }), {
         status: 400,
