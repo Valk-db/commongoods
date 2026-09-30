@@ -54,18 +54,15 @@ jobs:
           version: latest
 
       - name: Start local Supabase (applies all migrations from scratch)
-        run: supabase start
-        working-directory: ./supabase
+        run: supabase start --workdir ./supabase
 
       - name: Run pgTAP tests
-        run: supabase test db
-        working-directory: ./supabase
+        run: supabase test db --workdir ./supabase
 
       - name: Generated types must match committed types
         run: |
-          supabase gen types typescript --local > /tmp/supabase.types.ts
-          diff -u ../lib/supabase.types.ts /tmp/supabase.types.ts
-        working-directory: ./supabase
+          supabase gen types typescript --local --workdir ./supabase > /tmp/supabase.types.ts
+          diff -u lib/supabase.types.ts /tmp/supabase.types.ts
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -85,21 +82,18 @@ jobs:
           version: latest
 
       - name: Start local Supabase
-        run: supabase start
-        working-directory: ./supabase
+        run: supabase start --workdir ./supabase
 
       - name: Serve Edge Functions with mock routing
         run: |
           printf 'ROUTING_PROVIDER=mock\n' > functions/.env
-          supabase functions serve --env-file functions/.env > /tmp/functions.log 2>&1 &
+          supabase functions serve --env-file functions/.env --workdir ./supabase > /tmp/functions.log 2>&1 &
           sleep 15
-        working-directory: ./supabase
 
       - name: Run integration tests
         run: |
-          eval "$(supabase status -o env | sed 's/^/export /')"
-          npx vitest run tests/integration/
-        working-directory: ./supabase
+          eval "$(supabase status -o env --workdir ./supabase | sed 's/^/export /')"
+          npx vitest run supabase/tests/integration/
 
       - name: Show function logs on failure
         if: failure()
