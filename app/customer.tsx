@@ -8,8 +8,10 @@ import MapView, { Marker } from 'react-native-maps';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
+import { cfg } from '../lib/config';
 
-const EDGE_FUNCTION_URL = process.env.EXPO_PUBLIC_SUPABASE_URL! + '/functions/v1/create_delivery';
+const CREATE_DELIVERY_URL = process.env.EXPO_PUBLIC_SUPABASE_URL! + '/functions/v1/create_delivery';
+const GET_QUOTE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL! + '/functions/v1/get_quote';
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN!;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -46,14 +48,14 @@ interface CreateDeliveryResponse {
   pricing_breakdown?: PricingBreakdown;
 }
 
-const CATEGORIES = ['Auto Parts', 'Hardware', 'Pharmacy', 'Catering', 'Office Supply', 'Other'];
-
 const ST_AUGUSTINE = {
   latitude: 29.8943,
   longitude: -81.3145,
   latitudeDelta: 0.12,
   longitudeDelta: 0.12,
 };
+
+// CATEGORIES will be loaded from config
 
 // Snap points — collapsed (peek), half, full
 const SNAP_POINTS = ['18%', '52%', '92%'];
@@ -121,7 +123,7 @@ export default function CustomerScreen() {
   const [pickupAddress,   setPickupAddress]   = useState('');
   const [dropoffAddress,  setDropoffAddress]  = useState('');
   const [pinMode,         setPinMode]         = useState<PinMode>('pickup');
-  const [category,        setCategory]        = useState('Auto Parts');
+  const [category,        setCategory]        = useState('');
   const [notes,           setNotes]           = useState('');
   const [region,          setRegion]          = useState(ST_AUGUSTINE);
   const [delivery,        setDelivery]        = useState<PricingBreakdown | null>(null);
@@ -135,10 +137,32 @@ export default function CustomerScreen() {
   const [searchResults,   setSearchResults]   = useState<SearchResult[]>([]);
   const [searching,       setSearching]       = useState(false);
   const [searchActive,    setSearchActive]    = useState(false);
+  const [categories,      setCategories]      = useState<string[]>([]);
+  const [outOfAreaMsg,    setOutOfAreaMsg]    = useState('');
 
   const mapRef    = useRef<MapView>(null);
   const sheetRef  = useRef<BottomSheet>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load categories and out-of-area message from config on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const [cats, msg] = await Promise.all([
+          cfg.ux.getCategories(),
+          cfg.ux.getOutOfAreaMessage(),
+        ]);
+        setCategories(cats || ['Auto Parts', 'Hardware', 'Pharmacy', 'Catering', 'Office Supply', 'Other']);
+        setCategory(cats?.[0] || 'Auto Parts');
+        setOutOfAreaMsg(msg || "Sorry, we don't deliver to this area yet.");
+      } catch {
+        // Fallback to defaults
+        setCategories(['Auto Parts', 'Hardware', 'Pharmacy', 'Catering', 'Office Supply', 'Other']);
+        setCategory('Auto Parts');
+        setOutOfAreaMsg("Sorry, we don't deliver to this area yet.");
+      }
+    })();
+  }, []);
 
   // Location on mount
   useEffect(() => {
@@ -153,7 +177,7 @@ export default function CustomerScreen() {
     })();
   }, []);
 
-  // Zone calc when both pins set - calls Edge Function for pricing preview
+  // Zone calc when both pins set - calls get_quote Edge Function for pricing preview
   useEffect(() => {
     if (!pickup || !dropoff) { setDelivery(null); setZoneError(null); return; }
     let cancelled = false;
@@ -164,7 +188,20 @@ export default function CustomerScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Not authenticated');
 
-        const response = await fetch(EDGE_FUNCTION_URL, {
+        // Get a partner for the quote - use first approved partner
+        const { data: partners, error: partnerError } = await supabase
+          .from('partners')
+          .select('id')
+          .eq('approved', true)
+          .limit(1);
+
+        if (partnerError || !partners || partners.length === 0) {
+          throw new Error('No approved partners available');
+        }
+
+        const partnerId = partners[0].id;
+
+        const response = await fetch(GET_QUOTE_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -172,16 +209,16 @@ export default function CustomerScreen() {
           },
           body: JSON.stringify({
             customer_id: session.user.id,
-            partner_id: '', // Will be filled by Edge Function or we need a partner picker
-            category: 'Auto Parts', // Default, will be overridden
-            pickup_address: '',
+            partner_id: partnerId,
+            category: category,
+            pickup_address: pickupAddress || `${pickup.latitude.toFixed(5)}, ${pickup.longitude.toFixed(5)}`,
             pickup_lat: pickup.latitude,
             pickup_lng: pickup.longitude,
-            dropoff_address: '',
+            dropoff_address: dropoffAddress || `${dropoff.latitude.toFixed(5)}, ${dropoff.longitude.toFixed(5)}`,
             dropoff_lat: dropoff.latitude,
             dropoff_lng: dropoff.longitude,
             estimated_duration_minutes: 0,
-            notes: '',
+            notes: notes.trim() || null,
           }),
         });
 
@@ -192,7 +229,7 @@ export default function CustomerScreen() {
             setQuoteId(data.quote_id || null);
           } else {
             setZoneError(data.error === 'OUTSIDE_SERVICE_AREA'
-              ? 'Outside service area'
+              ? outOfAreaMsg
               : data.error || 'Could not calculate route. Try again.');
             setDelivery(null);
           }
@@ -200,7 +237,7 @@ export default function CustomerScreen() {
       } catch (err: any) {
         if (!cancelled) {
           setZoneError(err.message === 'OUTSIDE_SERVICE_AREA'
-            ? 'Outside service area (20 mile max)'
+            ? outOfAreaMsg
             : 'Could not calculate route. Try again.');
           setDelivery(null);
         }
@@ -209,7 +246,7 @@ export default function CustomerScreen() {
       }
     })();
     return () => { cancelled = true; };
-  }, [pickup, dropoff]);
+  }, [pickup, dropoff, category, pickupAddress, dropoffAddress, notes, outOfAreaMsg]);
 
   // Debounced search
   const handleSearchChange = useCallback((text: string) => {
@@ -302,7 +339,7 @@ export default function CustomerScreen() {
       return;
     }
 
-    const response = await fetch(EDGE_FUNCTION_URL, {
+    const response = await fetch(CREATE_DELIVERY_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -320,6 +357,7 @@ export default function CustomerScreen() {
         dropoff_lng: dropoff.longitude,
         estimated_duration_minutes: delivery.estimated_duration_minutes || 0,
         notes: notes.trim() || null,
+        quote_id: quoteId,
       }),
     });
 
@@ -494,7 +532,7 @@ export default function CustomerScreen() {
           {/* Category */}
           <Text style={styles.sectionLabel}>CATEGORY</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat: string) => (
               <TouchableOpacity
                 key={cat}
                 style={[styles.catChip, category === cat && styles.catChipActive]}

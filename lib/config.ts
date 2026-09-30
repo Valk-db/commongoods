@@ -447,6 +447,9 @@ export const ux = {
   },
   async getOutOfAreaMessage(ctx?: ConfigContext) {
     return (await config.get('ux.copy.out_of_area', ctx)) as string;
+  },
+  async getCategories(ctx?: ConfigContext) {
+    return (await config.get('ux.categories', ctx)) as string[];
   }
 };
 

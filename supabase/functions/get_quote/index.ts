@@ -1,5 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  calculatePricing,
+  getZoneFromDistance,
+  isPeakHour,
+  type PricingConfig,
+  type PricingInput,
+  type PricingResult,
+} from "../_shared/pricing/index.ts";
 
 interface GetQuoteRequest {
   customer_id: string;
@@ -31,6 +39,61 @@ interface GetQuoteResponse {
     is_peak_hour: boolean;
     demand_multiplier: number;
   };
+}
+
+// Helper to resolve config from database
+async function resolveConfig(
+  supabase: ReturnType<typeof createClient>,
+  snapshotId: string | null
+): Promise<PricingConfig> {
+  if (snapshotId) {
+    const { data, error } = await supabase
+      .from('config_snapshots')
+      .select('resolved')
+      .eq('id', snapshotId)
+      .single();
+    if (error || !data) throw new Error('Invalid config snapshot');
+    return data.resolved as unknown as PricingConfig;
+  } else {
+    const { data, error } = await supabase.rpc('resolve_all_config', {
+      p_ctx: {},
+      p_at: new Date().toISOString(),
+    });
+    if (error || !data || data.length === 0) throw new Error('Failed to resolve config');
+    return data[0].config as unknown as PricingConfig;
+  }
+}
+
+// Helper to get config snapshot ID
+async function getConfigSnapshotId(
+  supabase: ReturnType<typeof createClient>,
+  config: PricingConfig
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('config_snapshots')
+    .select('id')
+    .eq('hash', await sha256(JSON.stringify(config)))
+    .single();
+  if (error || !data) {
+    // Create new snapshot
+    const { data: newSnapshot, error: createError } = await supabase
+      .from('config_snapshots')
+      .insert({ hash: await sha256(JSON.stringify(config)), resolved: config as unknown as Record<string, unknown> })
+      .select('id')
+      .single();
+    if (createError || !newSnapshot) throw new Error('Failed to create config snapshot');
+    return newSnapshot.id;
+  }
+  return data.id;
+}
+
+// Simple SHA-256 for Deno
+async function sha256(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 Deno.serve(async (req: Request) => {
@@ -183,44 +246,120 @@ Deno.serve(async (req: Request) => {
     const durationMinutes = Math.ceil(durationSeconds / 60);
     const routePolyline = route.geometry;
 
-    // Check max distance from config (will be validated in RPC)
-    // We'll let the RPC handle the OUTSIDE_SERVICE_AREA check
+    // Resolve config
+    const config = await resolveConfig(supabase, null);
 
-    // Now call the create_delivery RPC with service role to get pricing
-    // We pass a special flag to indicate this is a quote request (not actual delivery)
+    // Determine zone
+    let zone: 1 | 2 | 3;
+    try {
+      zone = getZoneFromDistance(distanceMiles, config.distanceBands);
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: "OUTSIDE_SERVICE_AREA" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check max distance
+    const maxDistance = config.geo?.maxDistanceMiles || 20;
+    if (distanceMiles > maxDistance) {
+      return new Response(JSON.stringify({ success: false, error: "OUTSIDE_SERVICE_AREA" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check peak hours
+    const isPeak = isPeakHour(config.peakHours, new Date());
+
+    // Prepare pricing input
+    const pricingInput: PricingInput = {
+      distanceMiles,
+      estimatedDurationMinutes: durationMinutes,
+      zone,
+      isPeakHour: isPeak,
+      weatherSurcharge: config.weatherSurcharge || 0,
+    };
+
+    // Calculate pricing using shared engine
+    const pricingResult: PricingResult = calculatePricing(config, pricingInput);
+
+    // Verify components sum
+    if (Math.abs(pricingResult.components.reduce((a, c) => a + c.amount, 0) - pricingResult.customerTotal) > 0.01) {
+      console.error('Components do not sum to customerTotal');
+    }
+
+    // Get config snapshot ID
+    const configSnapshotId = await getConfigSnapshotId(supabase, config);
+
+    // Service role client for DB operations
     const serviceRoleSupabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Call a get_quote RPC that computes pricing but doesn't create delivery
-    const { data, error } = await serviceRoleSupabase.rpc("get_quote", {
-      p_customer_id: body.customer_id,
-      p_partner_id: body.partner_id,
-      p_category: body.category,
-      p_pickup_address: body.pickup_address,
-      p_pickup_lat: body.pickup_lat,
-      p_pickup_lng: body.pickup_lng,
-      p_dropoff_address: body.dropoff_address,
-      p_dropoff_lat: body.dropoff_lat,
-      p_dropoff_lng: body.dropoff_lng,
-      p_distance_miles: distanceMiles,
-      p_estimated_duration_minutes: durationMinutes,
-      p_notes: body.notes,
-      p_config_snapshot_id: null,
-    });
+    // Get active algorithm version
+    const { data: algoVersion } = await serviceRoleSupabase
+      .from('algorithm_versions')
+      .select('id')
+      .eq('kind', 'pricing')
+      .eq('name', config.strategy)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-    if (error) {
-      console.error("get_quote RPC error:", error);
-      return new Response(JSON.stringify({ success: false, error: error.message }), {
+    // Create quote (expires in 15 minutes)
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const { data: quote, error: quoteError } = await serviceRoleSupabase
+      .from('quotes')
+      .insert({
+        customer_id: body.customer_id,
+        partner_id: body.partner_id,
+        pickup_lat: body.pickup_lat,
+        pickup_lng: body.pickup_lng,
+        dropoff_lat: body.dropoff_lat,
+        dropoff_lng: body.dropoff_lng,
+        distance_miles: distanceMiles,
+        estimated_duration_minutes: durationMinutes,
+        zone_assigned: zone,
+        customer_total: pricingResult.customerTotal,
+        components: pricingResult.components,
+        platform_cut: pricingResult.platformCut,
+        driver_payout: pricingResult.driverPayout,
+        pricing_algorithm_version: algoVersion?.id,
+        config_snapshot_id: configSnapshotId,
+        status: 'generated',
+        expires_at: expiresAt,
+      })
+      .select('id')
+      .single();
+
+    if (quoteError || !quote) {
+      console.error("Quote insert error:", quoteError);
+      return new Response(JSON.stringify({ success: false, error: "Failed to create quote" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const result = data[0] as GetQuoteResponse;
-    return new Response(JSON.stringify(result), {
-      status: result.success ? 200 : 400,
+    return new Response(JSON.stringify({
+      success: true,
+      quote_id: quote.id,
+      expires_at: expiresAt,
+      pricing_breakdown: {
+        customer_total: pricingResult.customerTotal,
+        components: pricingResult.components,
+        platform_cut: pricingResult.platformCut,
+        driver_payout: pricingResult.driverPayout,
+        zone: pricingResult.zone,
+        distance_miles: pricingResult.distanceMiles,
+        strategy: pricingResult.strategy,
+        is_peak_hour: isPeak,
+        demand_multiplier: isPeak ? config.demandMultiplier.min : 1.0,
+      },
+    }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

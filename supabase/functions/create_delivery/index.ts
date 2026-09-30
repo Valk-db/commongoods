@@ -14,6 +14,7 @@ interface CreateDeliveryRequest {
   estimated_duration_minutes?: number;
   notes?: string;
   idempotency_key?: string;
+  quote_id?: string;
 }
 
 interface CreateDeliveryResponse {
@@ -361,6 +362,7 @@ Deno.serve(async (req: Request) => {
       p_estimated_duration_minutes: durationMinutes,
       p_notes: body.notes,
       p_config_snapshot_id: null,
+      p_quote_id: body.quote_id,
     });
 
     if (error) {
