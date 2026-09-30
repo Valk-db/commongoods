@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Alert, TouchableOpacity,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import type { Profile, Delivery } from '../lib/supabase';
@@ -158,8 +158,27 @@ export default function OrdersScreen() {
   );
 }
 
+// Cancel order function
+async function handleCancelOrder(deliveryId: string) {
+  const { data, error } = await supabase.rpc('advance_delivery_status', {
+    p_delivery_id: deliveryId,
+    p_new_status: 'cancelled',
+  });
+
+  if (error) {
+    Alert.alert('Error', error.message);
+    return;
+  }
+
+  if (data && data.length > 0 && !data[0].success) {
+    Alert.alert('Could not cancel', data[0].error || 'Unknown error');
+  }
+}
+
 function DeliveryCard({ delivery: d, isDriver }: { delivery: Delivery; isDriver: boolean }) {
   const status = d.status ?? 'pending';
+  const canCancel = !isDriver && (status === 'pending' || status === 'claimed');
+
   return (
     <View style={[styles.card, { borderLeftColor: STATUS_COLOR[status] }]}>
       <View style={styles.cardHeader}>
@@ -174,12 +193,19 @@ function DeliveryCard({ delivery: d, isDriver }: { delivery: Delivery; isDriver:
         <Text style={styles.cardMeta}>
           Zone {d.zone_assigned}  ·  {d.distance_miles?.toFixed(1)} mi  ·  {formatDate(d.requested_at)}
         </Text>
-        <Text style={styles.cardAmount}>
-          ${isDriver
-            ? (d.driver_payout ?? 0).toFixed(2)
-            : (d.fee_charged ?? 0).toFixed(2)
-          }
-        </Text>
+        <View style={styles.cardFooterRight}>
+          {canCancel && (
+            <TouchableOpacity style={styles.cancelButton} onPress={() => handleCancelOrder(d.id)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.cardAmount}>
+            ${isDriver
+              ? (d.driver_payout ?? 0).toFixed(2)
+              : (d.fee_charged ?? 0).toFixed(2)
+            }
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -201,8 +227,11 @@ const styles = StyleSheet.create({
   cardStatus:     { fontSize: 12, fontWeight: '600' },
   cardRoute:      { color: '#7a9e9e', fontSize: 13, marginBottom: 4 },
   cardFooter:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  cardFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardMeta:       { color: '#4a7a7a', fontSize: 11 },
   cardAmount:     { color: '#f5a623', fontSize: 18, fontWeight: '700' },
+  cancelButton:   { backgroundColor: '#7a4a4a', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 4 },
+  cancelText:     { color: '#f5f5f5', fontSize: 11, fontWeight: '600' },
   emptyState:     { alignItems: 'center', paddingVertical: 48 },
   emptyText:      { color: '#7a9e9e', fontSize: 15 },
 });

@@ -28,7 +28,6 @@ export default function AuthScreen() {
   const [refCode,    setRefCode]      = useState('');
   const [refRole,    setRefRole]      = useState<AppMode>('customer');
   const [refLabel,   setRefLabel]     = useState('');
-  const [refId,      setRefId]        = useState('');
   const [fullName,   setFullName]     = useState('');
   const [email,      setEmail]        = useState('');
   const [password,   setPassword]     = useState('');
@@ -60,33 +59,26 @@ export default function AuthScreen() {
     if (!trimmed) { Alert.alert('Required', 'Enter a referral code.'); return; }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('referral_codes')
-      .select('id, role, label, is_active, used_by, expires_at')
-      .eq('code', trimmed)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('check_referral_code', {
+      p_code: trimmed,
+    }) as { data: Array<{ success: boolean; role: string; error: string | null }> | null; error: Error | null };
     setLoading(false);
 
-    if (error || !data) {
-      Alert.alert('Invalid code', 'That referral code doesn\'t exist. Check with whoever invited you.');
-      return;
-    }
-    if (!data.is_active) {
-      Alert.alert('Code inactive', 'This referral code has been deactivated.');
-      return;
-    }
-    if (data.used_by) {
-      Alert.alert('Already used', 'This referral code has already been used.');
-      return;
-    }
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
-      Alert.alert('Expired', 'This referral code has expired.');
+    if (error || !data || data.length === 0) {
+      const msg = error?.message || 'That referral code doesn\'t exist. Check with whoever invited you.';
+      Alert.alert('Invalid code', msg);
       return;
     }
 
-    setRefId(data.id);
-    setRefRole(data.role as AppMode);
-    setRefLabel(data.label ?? '');
+    const result = data[0];
+    if (!result.success) {
+      const msg = result.error || 'That referral code doesn\'t exist. Check with whoever invited you.';
+      Alert.alert('Invalid code', msg);
+      return;
+    }
+
+    setRefRole(result.role as AppMode);
+    setRefLabel('');
     setRefCode(trimmed);
     setSignupStep('details');
   }
@@ -109,7 +101,7 @@ export default function AuthScreen() {
       options: {
         data: {
           full_name: fullName.trim() || null,
-          role: refRole,
+          referral_code: refCode || null,
         },
       },
     });
@@ -119,12 +111,6 @@ export default function AuthScreen() {
       Alert.alert('Signup failed', error.message);
       return;
     }
-
-    // Mark referral code as used
-    await supabase
-      .from('referral_codes')
-      .update({ is_active: false })
-      .eq('id', refId);
 
     setLoading(false);
     setSignupStep('confirmed');

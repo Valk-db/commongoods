@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 import type { Delivery } from '../lib/supabase';
 import { openDriveNavigation } from '../lib/navigation';
 
+const EDGE_FUNCTION_URL = process.env.EXPO_PUBLIC_SUPABASE_URL! + '/functions/v1';
+
 type Earnings = {
   today: number;
   week: number;
@@ -15,12 +17,13 @@ type Earnings = {
 
 export default function DriverScreen() {
   const [userId,    setUserId]    = useState<string | null>(null);
-  const [available, setAvailable] = useState<Delivery[]>([]);
+  const [available, setAvailable] = useState<AvailableJob[]>([]);
   const [activeJob, setActiveJob] = useState<Delivery | null>(null);
   const [earnings,  setEarnings]  = useState<Earnings>({ today: 0, week: 0, count: 0 });
   const [loading,   setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [claiming,  setClaiming]  = useState<string | null>(null);
+  const [advancing, setAdvancing] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -28,13 +31,70 @@ export default function DriverScreen() {
     });
   }, []);
 
-  const fetchData = useCallback(async (uid: string) => {
-    // Available (pending) jobs
-    const { data: pendingJobs } = await supabase
-      .from('deliveries')
-      .select('*')
-      .eq('status', 'pending')
-      .order('requested_at', { ascending: true });
+  interface AvailableJob {
+  id: string;
+  category: string;
+  pickup_address: string;
+  pickup_lat: number;
+  pickup_lng: number;
+  dropoff_address: string | null;
+  dropoff_lat: number | null;
+  dropoff_lng: number | null;
+  distance_miles: number | null;
+  zone_assigned: number | null;
+  fee_charged: number | null;
+  driver_payout: number | null;
+  platform_cut: number | null;
+  estimated_duration_minutes: number | null;
+  requested_at: string;
+  notes?: string | null;
+  partner_name: string | null;
+  pickup_notes: string | null;
+}
+
+const fetchData = useCallback(async (uid: string) => {
+    // Available (pending) jobs - use get_available_jobs RPC
+    const { data: pendingJobs, error: jobsError } = await supabase
+      .rpc('get_available_jobs');
+
+    if (jobsError) {
+      console.error('get_available_jobs error:', jobsError);
+      // Fallback: try available_jobs view directly
+      const { data: fallbackJobs, error: fallbackError } = await supabase
+        .from('available_jobs' as any)
+        .select('*')
+        .order('requested_at', { ascending: true });
+
+      if (fallbackError) {
+        throw fallbackError;
+      }
+      setAvailable((fallbackJobs as unknown as AvailableJob[]) || []);
+    } else {
+      // Transform RPC result to AvailableJob (add missing fields with defaults)
+      const jobs = (pendingJobs as unknown as Array<{
+        id: string;
+        category: string;
+        pickup_address: string;
+        pickup_lat: number;
+        pickup_lng: number;
+        dropoff_address: string | null;
+        dropoff_lat: number | null;
+        dropoff_lng: number | null;
+        distance_miles: number | null;
+        zone_assigned: number | null;
+        fee_charged: number | null;
+        driver_payout: number | null;
+        platform_cut: number | null;
+        estimated_duration_minutes: number | null;
+        requested_at: string;
+        partner_name: string | null;
+        pickup_notes: string | null;
+      }>) || [];
+      setAvailable(jobs.map(job => ({
+        ...job,
+        notes: undefined,
+      })));
+    }
 
     // This driver's active job
     const { data: myJob } = await supabase
@@ -44,31 +104,32 @@ export default function DriverScreen() {
       .in('status', ['claimed', 'in_progress'])
       .maybeSingle();
 
-    // Earnings
+    // Earnings - use delivered_at for accuracy
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const startOfWeek  = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString();
 
     const { data: todayRows } = await supabase
-      .from('deliveries')
-      .select('driver_payout')
+      .from('earnings')
+      .select('amount')
       .eq('driver_id', uid)
-      .eq('status', 'completed')
-      .gte('requested_at', startOfToday);
+      .eq('paid_out', false) // only unpaid earnings
+      .gte('created_at', startOfToday);
 
     const { data: weekRows } = await supabase
-      .from('deliveries')
-      .select('driver_payout')
+      .from('earnings')
+      .select('amount')
       .eq('driver_id', uid)
-      .eq('status', 'completed')
-      .gte('requested_at', startOfWeek);
+      .eq('paid_out', false)
+      .gte('created_at', startOfWeek);
 
-    const todayTotal = (todayRows ?? []).reduce((sum, d) => sum + (d.driver_payout ?? 0), 0);
-    const weekTotal  = (weekRows  ?? []).reduce((sum, d) => sum + (d.driver_payout ?? 0), 0);
+    const todayTotal = (todayRows ?? []).reduce((sum, d) => sum + (d.amount ?? 0), 0);
+    const weekTotal  = (weekRows  ?? []).reduce((sum, d) => sum + (d.amount ?? 0), 0);
+    const todayCount = todayRows?.length ?? 0;
 
     setAvailable(pendingJobs ?? []);
     setActiveJob(myJob ?? null);
-    setEarnings({ today: todayTotal, week: weekTotal, count: todayRows?.length ?? 0 });
+    setEarnings({ today: todayTotal, week: weekTotal, count: todayCount });
     setLoading(false);
   }, []);
 
@@ -86,42 +147,123 @@ export default function DriverScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [userId, fetchData]);
 
-  async function handleClaim(job: Delivery) {
+  // Call RPC function to claim a delivery
+  async function handleClaim(jobId: string) {
     if (!userId) return;
-    setClaiming(job.id);
-    // .select() here is load-bearing: Supabase/PostgREST returns success with an
-    // empty array (not an error) when the .eq('status','pending') guard matches
-    // zero rows, e.g. another driver claimed it a moment earlier. Without
-    // selecting back the row, that race goes undetected and the driver never
-    // sees a "this job's gone" message.
-    const { data, error } = await supabase
-      .from('deliveries')
-      .update({ driver_id: userId, status: 'claimed' })
-      .eq('id', job.id)
-      .eq('status', 'pending') // guard: only claim if still pending
-      .select('id');
+    setClaiming(jobId);
+    try {
+      const { data, error } = await supabase.rpc('claim_delivery', {
+        p_delivery_id: jobId,
+      });
 
-    setClaiming(null);
-    if (error || !data || data.length === 0) {
-      Alert.alert('Could not claim', 'This job may have already been taken.');
-      fetchData(userId); // refresh so the stale card disappears from the list
-    } else {
+      setClaiming(null);
+      if (error || !data || data.length === 0 || !data[0].success) {
+        const msg = data?.[0]?.error || error?.message || 'This job may have already been taken.';
+        Alert.alert('Could not claim', msg);
+        fetchData(userId);
+      } else {
+        fetchData(userId);
+      }
+    } catch (err: any) {
+      setClaiming(null);
+      Alert.alert('Error', err.message);
       fetchData(userId);
     }
   }
 
+  // Call RPC to advance status to in_progress (driver picked up)
   async function handlePickedUp() {
     if (!activeJob || !userId) return;
-    const { error } = await supabase
-      .from('deliveries')
-      .update({ status: 'in_progress', picked_up_at: new Date().toISOString() })
-      .eq('id', activeJob.id)
-      .eq('driver_id', userId);
+    setAdvancing(activeJob.id);
+    try {
+      const { data, error } = await supabase.rpc('advance_delivery_status', {
+        p_delivery_id: activeJob.id,
+        p_new_status: 'in_progress',
+      });
 
-    if (error) {
-      Alert.alert('Error', error.message);
-    } else {
-      fetchData(userId);
+      setAdvancing(null);
+      if (error || !data || data.length === 0 || !data[0].success) {
+        const msg = data?.[0]?.error || error?.message || 'Could not update status.';
+        Alert.alert('Error', msg);
+      } else {
+        fetchData(userId);
+      }
+    } catch (err: any) {
+      setAdvancing(null);
+      Alert.alert('Error', err.message);
+    }
+  }
+
+  // Call RPC to advance status to completed (driver delivered)
+  async function handleComplete() {
+    if (!activeJob || !userId) return;
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Mark as Complete?',
+        `Confirm delivery of ${activeJob.category} job for $${activeJob.driver_payout?.toFixed(2)}`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Complete', onPress: () => resolve(true) },
+        ]
+      );
+    });
+
+    if (!confirmed) return;
+
+    setAdvancing(activeJob.id);
+    try {
+      const { data, error } = await supabase.rpc('advance_delivery_status', {
+        p_delivery_id: activeJob.id,
+        p_new_status: 'completed',
+      });
+
+      setAdvancing(null);
+      if (error || !data || data.length === 0 || !data[0].success) {
+        const msg = data?.[0]?.error || error?.message || 'Could not complete delivery.';
+        Alert.alert('Error', msg);
+      } else {
+        setActiveJob(null);
+        fetchData(userId);
+      }
+    } catch (err: any) {
+      setAdvancing(null);
+      Alert.alert('Error', err.message);
+    }
+  }
+
+  // Call RPC to release a job back to pending
+  async function handleRelease() {
+    if (!activeJob || !userId) return;
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Release Job?',
+        'This will make the job available for other drivers.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Release', onPress: () => resolve(true) },
+        ]
+      );
+    });
+
+    if (!confirmed) return;
+
+    setAdvancing(activeJob.id);
+    try {
+      const { data, error } = await supabase.rpc('release_delivery', {
+        p_delivery_id: activeJob.id,
+      });
+
+      setAdvancing(null);
+      if (error || !data || data.length === 0 || !data[0].success) {
+        const msg = data?.[0]?.error || error?.message || 'Could not release job.';
+        Alert.alert('Error', msg);
+      } else {
+        setActiveJob(null);
+        fetchData(userId);
+      }
+    } catch (err: any) {
+      setAdvancing(null);
+      Alert.alert('Error', err.message);
     }
   }
 
@@ -132,34 +274,6 @@ export default function DriverScreen() {
       : { latitude: job.dropoff_lat, longitude: job.dropoff_lng };
     const label = toPickup ? job.pickup_address : job.dropoff_address;
     openDriveNavigation(destination, label);
-  }
-
-  async function handleComplete() {
-    if (!activeJob || !userId) return;
-    Alert.alert(
-      'Mark as Complete?',
-      `Confirm delivery of ${activeJob.category} job for $${activeJob.driver_payout?.toFixed(2)}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Complete',
-          onPress: async () => {
-            const { error } = await supabase
-              .from('deliveries')
-              .update({ status: 'completed', delivered_at: new Date().toISOString() })
-              .eq('id', activeJob.id)
-              .eq('driver_id', userId);
-
-            if (error) {
-              Alert.alert('Error', error.message);
-            } else {
-              setActiveJob(null);
-              fetchData(userId);
-            }
-          },
-        },
-      ]
-    );
   }
 
   async function onRefresh() {
@@ -222,12 +336,33 @@ export default function DriverScreen() {
                 </Text>
               </TouchableOpacity>
               {activeJob.status === 'claimed' ? (
-                <TouchableOpacity style={styles.pickedUpButton} onPress={handlePickedUp}>
-                  <Text style={styles.completeText}>Picked Up</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={styles.pickedUpButton}
+                    onPress={handlePickedUp}
+                    disabled={!!advancing}
+                  >
+                    <Text style={styles.completeText}>
+                      {advancing === activeJob.id ? 'Starting...' : 'Picked Up → Start Driving'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.releaseButton}
+                    onPress={handleRelease}
+                    disabled={!!advancing}
+                  >
+                    <Text style={styles.releaseText}>Release</Text>
+                  </TouchableOpacity>
+                </>
               ) : (
-                <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
-                  <Text style={styles.completeText}>Mark Complete</Text>
+                <TouchableOpacity
+                  style={styles.completeButton}
+                  onPress={handleComplete}
+                  disabled={!!advancing}
+                >
+                  <Text style={styles.completeText}>
+                    {advancing === activeJob.id ? 'Completing...' : 'Mark Complete'}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -258,7 +393,7 @@ export default function DriverScreen() {
               </Text>
               <TouchableOpacity
                 style={[styles.claimButton, (!!claiming || !!activeJob) && styles.claimButtonDisabled]}
-                onPress={() => handleClaim(job)}
+                onPress={() => handleClaim(job.id)}
                 disabled={!!claiming || !!activeJob}
               >
                 {claiming === job.id
@@ -295,7 +430,9 @@ const styles = StyleSheet.create({
   activeActions:       { flexDirection: 'row', gap: 10, marginTop: 14 },
   navigateButton:      { flex: 1, backgroundColor: '#0a1a1a', borderWidth: 1, borderColor: '#1a6b6b', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
   navigateText:        { color: '#7a9e9e', fontSize: 13, fontWeight: '700' },
-  pickedUpButton:      { backgroundColor: '#1a6b6b', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 6, alignItems: 'center' },
+  pickedUpButton:      { flex: 1, backgroundColor: '#1a6b6b', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 6, alignItems: 'center' },
+  releaseButton:       { backgroundColor: '#7a4a4a', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 6, alignItems: 'center' },
+  releaseText:         { color: '#f5f5f5', fontSize: 13, fontWeight: '700' },
   claimButton:         { backgroundColor: '#1a6b6b', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 6, minWidth: 72, alignItems: 'center' },
   claimButtonDisabled: { backgroundColor: '#1a3a3a' },
   claimText:           { color: '#f5f5f5', fontSize: 13, fontWeight: '700' },
