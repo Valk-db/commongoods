@@ -37,3 +37,41 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  database-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: supabase/postgres:17.6.0
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase local stack
+        run: supabase start
+
+      - name: Apply migrations
+        run: supabase db reset
+
+      - name: Run pgTAP tests
+        run: supabase test db
+
+      - name: Generate TypeScript types
+        run: supabase gen types typescript --local > lib/supabase.types.ts
+
+      - name: Verify types compile
+        run: npx tsc --noEmit --skipLibCheck lib/supabase.types.ts
