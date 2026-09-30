@@ -126,4 +126,13 @@ supabase gen types typescript --linked > lib/supabase.types.ts
 
 ## License
 
-TBD
+- CommonGoods is licensed under the **GNU Affero
+- General Public License v3.0 (AGPL-3.0)** — see
+- [LICENSE](./LICENSE) for the full text.
+
+- **Commercial licensing:** If you'd like to use
+- CommonGoods in a proprietary product or service
+- without AGPL obligations (for example, keeping
+- your modifications private), commercial licenses
+- are available. Contact sivalkmedia@gmail.com to
+- discuss terms.
