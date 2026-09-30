@@ -62,8 +62,9 @@ jobs:
 
       - name: Generated types must match committed types
         run: |
-          supabase gen types typescript --local --workdir ./supabase > /tmp/supabase.types.ts
-          diff -u lib/supabase.types.ts /tmp/supabase.types.ts
+          supabase gen types typescript --local > /tmp/supabase.types.ts
+          diff -u ../lib/supabase.types.ts /tmp/supabase.types.ts
+        working-directory: ./supabase
 
   integration-tests:
     runs-on: ubuntu-latest
