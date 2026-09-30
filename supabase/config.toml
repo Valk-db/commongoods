@@ -1,5 +1,5 @@
-
 [db.migrations]
-schema_paths = [
-  "schemas",
-]
+schema_paths = ["schemas"]
+
+[functions]
+path = "functions"

@@ -12,7 +12,7 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
+  private: {
     Tables: {
       [_ in never]: never
     }
@@ -20,15 +20,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
+      check_user_role: { Args: { required_role: string }; Returns: boolean }
+      current_role_is: { Args: { target_role: string }; Returns: boolean }
+      get_my_role: { Args: never; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
@@ -39,14 +34,288 @@ export type Database = {
   }
   public: {
     Tables: {
+      algorithm_versions: {
+        Row: {
+          code_ref: string
+          config_schema: Json
+          created_at: string
+          created_by: string
+          deprecated_at: string | null
+          description: string | null
+          id: string
+          kind: string
+          name: string
+          status: string
+          version: string
+        }
+        Insert: {
+          code_ref: string
+          config_schema?: Json
+          created_at?: string
+          created_by: string
+          deprecated_at?: string | null
+          description?: string | null
+          id?: string
+          kind: string
+          name: string
+          status?: string
+          version: string
+        }
+        Update: {
+          code_ref?: string
+          config_schema?: Json
+          created_at?: string
+          created_by?: string
+          deprecated_at?: string | null
+          description?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          status?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "algorithm_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      config_audit: {
+        Row: {
+          changed_by: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          key: string
+          new_value: Json | null
+          old_value: Json | null
+          reason: string | null
+          scope_id: string | null
+          scope_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          changed_by: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          key: string
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          scope_id?: string | null
+          scope_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          changed_by?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          key?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          scope_id?: string | null
+          scope_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      config_constraints: {
+        Row: {
+          created_at: string
+          expression: string
+          id: string
+          is_active: boolean
+          message: string
+          name: string
+          severity: string
+        }
+        Insert: {
+          created_at?: string
+          expression: string
+          id?: string
+          is_active?: boolean
+          message: string
+          name: string
+          severity?: string
+        }
+        Update: {
+          created_at?: string
+          expression?: string
+          id?: string
+          is_active?: boolean
+          message?: string
+          name?: string
+          severity?: string
+        }
+        Relationships: []
+      }
+      config_registry: {
+        Row: {
+          category: string
+          created_at: string
+          default_value: Json
+          description: string
+          json_schema: Json
+          key: string
+          max_value: Json | null
+          min_value: Json | null
+          requires_approval: boolean
+          risk_level: string
+          type: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          default_value: Json
+          description: string
+          json_schema: Json
+          key: string
+          max_value?: Json | null
+          min_value?: Json | null
+          requires_approval?: boolean
+          risk_level?: string
+          type: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          default_value?: Json
+          description?: string
+          json_schema?: Json
+          key?: string
+          max_value?: Json | null
+          min_value?: Json | null
+          requires_approval?: boolean
+          risk_level?: string
+          type?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      config_snapshots: {
+        Row: {
+          created_at: string
+          hash: string
+          id: string
+          resolved: Json
+        }
+        Insert: {
+          created_at?: string
+          hash: string
+          id?: string
+          resolved: Json
+        }
+        Update: {
+          created_at?: string
+          hash?: string
+          id?: string
+          resolved?: Json
+        }
+        Relationships: []
+      }
+      config_values: {
+        Row: {
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          governance_proposal_id: string | null
+          id: string
+          key: string
+          reason: string
+          scope_id: string | null
+          scope_type: string
+          status: string
+          value: Json
+        }
+        Insert: {
+          approved_by?: string | null
+          created_at?: string
+          created_by: string
+          effective_from?: string
+          effective_to?: string | null
+          governance_proposal_id?: string | null
+          id?: string
+          key: string
+          reason: string
+          scope_id?: string | null
+          scope_type: string
+          status?: string
+          value: Json
+        }
+        Update: {
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          effective_to?: string | null
+          governance_proposal_id?: string | null
+          id?: string
+          key?: string
+          reason?: string
+          scope_id?: string | null
+          scope_type?: string
+          status?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_values_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "config_values_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "config_values_key_fkey"
+            columns: ["key"]
+            isOneToOne: false
+            referencedRelation: "config_registry"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       deliveries: {
         Row: {
           actual_duration_minutes: number | null
+          arrived_dropoff_at: string | null
+          arrived_pickup_at: string | null
           base_fee_applied: number | null
+          cancel_reason_code: string | null
+          cancel_stage: string | null
           cancellation_reason_code: string | null
           cancelled_by: string | null
           category: string
           claimed_at: string | null
+          compensation_amount: number | null
           customer_id: string | null
           delivered_at: string | null
           distance_miles: number | null
@@ -58,10 +327,12 @@ export type Database = {
           dropoff_lat: number
           dropoff_lng: number
           dynamic_boost_incentive: number | null
+          en_route_at: string | null
           estimated_duration_minutes: number | null
           fee_charged: number | null
           id: string
           notes: string | null
+          offered_at: string | null
           partner_id: string | null
           per_mile_rate_applied: number | null
           picked_up_at: string | null
@@ -80,11 +351,16 @@ export type Database = {
         }
         Insert: {
           actual_duration_minutes?: number | null
+          arrived_dropoff_at?: string | null
+          arrived_pickup_at?: string | null
           base_fee_applied?: number | null
+          cancel_reason_code?: string | null
+          cancel_stage?: string | null
           cancellation_reason_code?: string | null
           cancelled_by?: string | null
           category: string
           claimed_at?: string | null
+          compensation_amount?: number | null
           customer_id?: string | null
           delivered_at?: string | null
           distance_miles?: number | null
@@ -96,10 +372,12 @@ export type Database = {
           dropoff_lat: number
           dropoff_lng: number
           dynamic_boost_incentive?: number | null
+          en_route_at?: string | null
           estimated_duration_minutes?: number | null
           fee_charged?: number | null
           id?: string
           notes?: string | null
+          offered_at?: string | null
           partner_id?: string | null
           per_mile_rate_applied?: number | null
           picked_up_at?: string | null
@@ -118,11 +396,16 @@ export type Database = {
         }
         Update: {
           actual_duration_minutes?: number | null
+          arrived_dropoff_at?: string | null
+          arrived_pickup_at?: string | null
           base_fee_applied?: number | null
+          cancel_reason_code?: string | null
+          cancel_stage?: string | null
           cancellation_reason_code?: string | null
           cancelled_by?: string | null
           category?: string
           claimed_at?: string | null
+          compensation_amount?: number | null
           customer_id?: string | null
           delivered_at?: string | null
           distance_miles?: number | null
@@ -134,10 +417,12 @@ export type Database = {
           dropoff_lat?: number
           dropoff_lng?: number
           dynamic_boost_incentive?: number | null
+          en_route_at?: string | null
           estimated_duration_minutes?: number | null
           fee_charged?: number | null
           id?: string
           notes?: string | null
+          offered_at?: string | null
           partner_id?: string | null
           per_mile_rate_applied?: number | null
           picked_up_at?: string | null
@@ -337,6 +622,169 @@ export type Database = {
           },
         ]
       }
+      dispatch_decisions: {
+        Row: {
+          candidates: Json
+          chosen_driver_id: string | null
+          config_snapshot_id: string
+          created_at: string
+          delivery_id: string
+          dispatch_algorithm_version: string
+          id: string
+          inputs: Json
+          reason: string | null
+        }
+        Insert: {
+          candidates?: Json
+          chosen_driver_id?: string | null
+          config_snapshot_id: string
+          created_at?: string
+          delivery_id: string
+          dispatch_algorithm_version: string
+          id?: string
+          inputs: Json
+          reason?: string | null
+        }
+        Update: {
+          candidates?: Json
+          chosen_driver_id?: string | null
+          config_snapshot_id?: string
+          created_at?: string
+          delivery_id?: string
+          dispatch_algorithm_version?: string
+          id?: string
+          inputs?: Json
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_decisions_chosen_driver_id_fkey"
+            columns: ["chosen_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_decisions_config_snapshot_id_fkey"
+            columns: ["config_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "config_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_decisions_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_decisions_dispatch_algorithm_version_fkey"
+            columns: ["dispatch_algorithm_version"]
+            isOneToOne: false
+            referencedRelation: "algorithm_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_offers: {
+        Row: {
+          alternatives_shown: number | null
+          config_snapshot_id: string
+          created_at: string
+          decline_reason: string | null
+          delivery_id: string
+          dispatch_algorithm_version: string
+          driver_acceptance_rate: number | null
+          driver_distance_to_pickup_miles: number | null
+          driver_id: string
+          driver_idle_time_minutes: number | null
+          driver_rating: number | null
+          id: string
+          latency_ms: number | null
+          offered_at: string
+          offered_pay: number
+          rank: number
+          responded_at: string | null
+          response: string | null
+          score: number
+          viewed_at: string | null
+        }
+        Insert: {
+          alternatives_shown?: number | null
+          config_snapshot_id: string
+          created_at?: string
+          decline_reason?: string | null
+          delivery_id: string
+          dispatch_algorithm_version: string
+          driver_acceptance_rate?: number | null
+          driver_distance_to_pickup_miles?: number | null
+          driver_id: string
+          driver_idle_time_minutes?: number | null
+          driver_rating?: number | null
+          id?: string
+          latency_ms?: number | null
+          offered_at?: string
+          offered_pay: number
+          rank: number
+          responded_at?: string | null
+          response?: string | null
+          score: number
+          viewed_at?: string | null
+        }
+        Update: {
+          alternatives_shown?: number | null
+          config_snapshot_id?: string
+          created_at?: string
+          decline_reason?: string | null
+          delivery_id?: string
+          dispatch_algorithm_version?: string
+          driver_acceptance_rate?: number | null
+          driver_distance_to_pickup_miles?: number | null
+          driver_id?: string
+          driver_idle_time_minutes?: number | null
+          driver_rating?: number | null
+          id?: string
+          latency_ms?: number | null
+          offered_at?: string
+          offered_pay?: number
+          rank?: number
+          responded_at?: string | null
+          response?: string | null
+          score?: number
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_offers_config_snapshot_id_fkey"
+            columns: ["config_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "config_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_offers_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_offers_dispatch_algorithm_version_fkey"
+            columns: ["dispatch_algorithm_version"]
+            isOneToOne: false
+            referencedRelation: "algorithm_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_offers_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           approved: boolean | null
@@ -413,6 +861,901 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      event_catalog: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          is_active: boolean
+          json_schema: Json
+          name: string
+          retention_days: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          is_active?: boolean
+          json_schema: Json
+          name: string
+          retention_days?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          is_active?: boolean
+          json_schema?: Json
+          name?: string
+          retention_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_config_snapshot_id_fkey"
+            columns: ["config_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "config_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_name_fkey"
+            columns: ["name"]
+            isOneToOne: false
+            referencedRelation: "event_catalog"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      events_2026_09: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2026_10: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2026_11: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2026_12: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_01: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_02: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_03: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_04: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_05: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_06: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_07: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_08: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
+      }
+      events_2027_09: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          app_version: string | null
+          config_snapshot_id: string | null
+          created_at: string
+          device_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          experiment_assignments: Json | null
+          id: string
+          idempotency_key: string | null
+          name: string
+          occurred_at: string
+          os: string | null
+          props: Json
+          received_at: string
+          session_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name: string
+          occurred_at: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          app_version?: string | null
+          config_snapshot_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          experiment_assignments?: Json | null
+          id?: string
+          idempotency_key?: string | null
+          name?: string
+          occurred_at?: string
+          os?: string | null
+          props?: Json
+          received_at?: string
+          session_id?: string | null
+        }
+        Relationships: []
       }
       menu_item_options: {
         Row: {
@@ -635,6 +1978,79 @@ export type Database = {
           },
         ]
       }
+      pricing_decisions: {
+        Row: {
+          actual_distance_miles: number | null
+          actual_duration_minutes: number | null
+          adjustments: Json | null
+          components: Json
+          config_snapshot_id: string
+          created_at: string
+          customer_total: number
+          delivery_id: string
+          driver_payout: number
+          id: string
+          inputs: Json
+          platform_cut: number
+          pricing_algorithm_version: string
+          zone_assigned: number
+        }
+        Insert: {
+          actual_distance_miles?: number | null
+          actual_duration_minutes?: number | null
+          adjustments?: Json | null
+          components?: Json
+          config_snapshot_id: string
+          created_at?: string
+          customer_total: number
+          delivery_id: string
+          driver_payout: number
+          id?: string
+          inputs: Json
+          platform_cut: number
+          pricing_algorithm_version: string
+          zone_assigned: number
+        }
+        Update: {
+          actual_distance_miles?: number | null
+          actual_duration_minutes?: number | null
+          adjustments?: Json | null
+          components?: Json
+          config_snapshot_id?: string
+          created_at?: string
+          customer_total?: number
+          delivery_id?: string
+          driver_payout?: number
+          id?: string
+          inputs?: Json
+          platform_cut?: number
+          pricing_algorithm_version?: string
+          zone_assigned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_decisions_config_snapshot_id_fkey"
+            columns: ["config_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "config_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_decisions_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: true
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_decisions_pricing_algorithm_version_fkey"
+            columns: ["pricing_algorithm_version"]
+            isOneToOne: false
+            referencedRelation: "algorithm_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           cancellation_rate: number | null
@@ -673,6 +2089,114 @@ export type Database = {
           role?: string
         }
         Relationships: []
+      }
+      quotes: {
+        Row: {
+          accepted_at: string | null
+          components: Json
+          config_snapshot_id: string
+          created_at: string
+          customer_id: string
+          customer_total: number
+          delivery_id: string | null
+          distance_miles: number
+          driver_payout: number
+          dropoff_lat: number
+          dropoff_lng: number
+          estimated_duration_minutes: number | null
+          expires_at: string
+          id: string
+          partner_id: string | null
+          pickup_lat: number
+          pickup_lng: number
+          platform_cut: number
+          pricing_algorithm_version: string
+          status: string
+          zone_assigned: number
+        }
+        Insert: {
+          accepted_at?: string | null
+          components?: Json
+          config_snapshot_id: string
+          created_at?: string
+          customer_id: string
+          customer_total: number
+          delivery_id?: string | null
+          distance_miles: number
+          driver_payout: number
+          dropoff_lat: number
+          dropoff_lng: number
+          estimated_duration_minutes?: number | null
+          expires_at?: string
+          id?: string
+          partner_id?: string | null
+          pickup_lat: number
+          pickup_lng: number
+          platform_cut: number
+          pricing_algorithm_version: string
+          status?: string
+          zone_assigned: number
+        }
+        Update: {
+          accepted_at?: string | null
+          components?: Json
+          config_snapshot_id?: string
+          created_at?: string
+          customer_id?: string
+          customer_total?: number
+          delivery_id?: string | null
+          distance_miles?: number
+          driver_payout?: number
+          dropoff_lat?: number
+          dropoff_lng?: number
+          estimated_duration_minutes?: number | null
+          expires_at?: string
+          id?: string
+          partner_id?: string | null
+          pickup_lat?: number
+          pickup_lng?: number
+          platform_cut?: number
+          pricing_algorithm_version?: string
+          status?: string
+          zone_assigned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_config_snapshot_id_fkey"
+            columns: ["config_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "config_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_pricing_algorithm_version_fkey"
+            columns: ["pricing_algorithm_version"]
+            isOneToOne: false
+            referencedRelation: "algorithm_versions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ratings_and_reviews: {
         Row: {
@@ -776,6 +2300,48 @@ export type Database = {
           },
         ]
       }
+      referral_redemptions: {
+        Row: {
+          created_at: string
+          id: string
+          redeemed_at: string
+          redeemed_by: string
+          referral_code_id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          redeemed_at?: string
+          redeemed_by: string
+          referral_code_id: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          redeemed_at?: string
+          redeemed_by?: string
+          referral_code_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_redemptions_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_redemptions_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       route_points: {
         Row: {
           delivery_id: string | null
@@ -811,15 +2377,170 @@ export type Database = {
           },
         ]
       }
+      tax_mileage_rates: {
+        Row: {
+          business_cents: number
+          charity_cents: number | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          medical_cents: number | null
+          notes: string | null
+          source_url: string | null
+        }
+        Insert: {
+          business_cents: number
+          charity_cents?: number | null
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          medical_cents?: number | null
+          notes?: string | null
+          source_url?: string | null
+        }
+        Update: {
+          business_cents?: number
+          charity_cents?: number | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          medical_cents?: number | null
+          notes?: string | null
+          source_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      advance_delivery_status: {
+        Args: { p_delivery_id: string; p_new_status: string }
+        Returns: {
+          error: string
+          success: boolean
+        }[]
+      }
+      check_referral_code: { Args: { p_code: string }; Returns: boolean }
       check_user_role: { Args: { required_role: string }; Returns: boolean }
+      claim_delivery: {
+        Args: { p_delivery_id: string }
+        Returns: {
+          delivery_id: string
+          error: string
+          success: boolean
+        }[]
+      }
+      create_delivery: {
+        Args: {
+          p_category: string
+          p_config_snapshot_id?: string
+          p_customer_id: string
+          p_distance_miles: number
+          p_dropoff_address: string
+          p_dropoff_lat: number
+          p_dropoff_lng: number
+          p_estimated_duration_minutes: number
+          p_notes?: string
+          p_partner_id: string
+          p_pickup_address: string
+          p_pickup_lat: number
+          p_pickup_lng: number
+        }
+        Returns: {
+          delivery_id: string
+          error: string
+          pricing_breakdown: Json
+          quote_id: string
+          success: boolean
+        }[]
+      }
       current_role_is: { Args: { target_role: string }; Returns: boolean }
+      get_active_algorithm_version: {
+        Args: { p_kind: string }
+        Returns: string
+      }
+      get_available_jobs: {
+        Args: never
+        Returns: {
+          category: string
+          distance_miles: number
+          driver_payout: number
+          dropoff_address: string
+          dropoff_lat: number
+          dropoff_lng: number
+          estimated_duration_minutes: number
+          fee_charged: number
+          id: string
+          partner_name: string
+          pickup_address: string
+          pickup_lat: number
+          pickup_lng: number
+          pickup_notes: string
+          platform_cut: number
+          requested_at: string
+          zone_assigned: number
+        }[]
+      }
+      get_mileage_rate: {
+        Args: { p_date: string }
+        Returns: {
+          business_cents: number
+          charity_cents: number
+          medical_cents: number
+        }[]
+      }
       get_my_role: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
+      preview_config_impact: {
+        Args: { p_days_lookback?: number; p_proposed: Json }
+        Returns: {
+          current_value: number
+          delta: number
+          delta_pct: number
+          metric: string
+          proposed_value: number
+        }[]
+      }
+      redeem_referral_code: {
+        Args: { p_code: string }
+        Returns: {
+          error: string
+          profile_id: string
+          role: string
+          success: boolean
+        }[]
+      }
+      release_delivery: {
+        Args: { p_delivery_id: string }
+        Returns: {
+          error: string
+          success: boolean
+        }[]
+      }
+      resolve_all_config: {
+        Args: { p_at?: string; p_ctx?: Json }
+        Returns: {
+          config: Json
+          snapshot_id: string
+        }[]
+      }
+      resolve_config: {
+        Args: { p_at?: string; p_ctx?: Json; p_key: string }
+        Returns: Json
+      }
+      validate_config_constraints: {
+        Args: { p_proposed: Json }
+        Returns: {
+          constraint_name: string
+          message: string
+          passed: boolean
+        }[]
+      }
       zone_pricing: {
         Args: { miles: number }
         Returns: {
@@ -831,7 +2552,14 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      delivery_stage:
+        | "pending"
+        | "offered"
+        | "claimed"
+        | "en_route"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -957,10 +2685,20 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
+  private: {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      delivery_stage: [
+        "pending",
+        "offered",
+        "claimed",
+        "en_route",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ],
+    },
   },
 } as const
