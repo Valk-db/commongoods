@@ -57,8 +57,7 @@ jobs:
         run: supabase start --workdir ./supabase
 
       - name: Run pgTAP tests
-        run: supabase test db tests/rls_regression.sql
-        working-directory: ./supabase
+        run: supabase test db --workdir ./supabase tests/rls_regression.sql
 
       - name: Generated types must match committed types
         run: |
