@@ -8,8 +8,8 @@ import MapView, { Marker } from 'react-native-maps';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
-import { calcDelivery, type ZoneInfo } from '../lib/zones';
 
+const EDGE_FUNCTION_URL = process.env.EXPO_PUBLIC_SUPABASE_URL! + '/functions/v1/create_delivery';
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN!;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -23,6 +23,27 @@ interface SearchResult {
   latitude: number;
   longitude: number;
   type: 'business' | 'address';
+}
+
+interface PricingBreakdown {
+  customer_total: number;
+  components: Array<{ name: string; amount: number; description: string }>;
+  platform_cut: number;
+  driver_payout: number;
+  zone: number;
+  distance_miles: number;
+  strategy: string;
+  estimated_duration_minutes?: number;
+  is_peak_hour?: boolean;
+  demand_multiplier?: number;
+}
+
+interface CreateDeliveryResponse {
+  success: boolean;
+  error?: string;
+  delivery_id?: string;
+  quote_id?: string;
+  pricing_breakdown?: PricingBreakdown;
 }
 
 const CATEGORIES = ['Auto Parts', 'Hardware', 'Pharmacy', 'Catering', 'Office Supply', 'Other'];
@@ -103,10 +124,11 @@ export default function CustomerScreen() {
   const [category,        setCategory]        = useState('Auto Parts');
   const [notes,           setNotes]           = useState('');
   const [region,          setRegion]          = useState(ST_AUGUSTINE);
-  const [delivery,        setDelivery]        = useState<ZoneInfo | null>(null);
+  const [delivery,        setDelivery]        = useState<PricingBreakdown | null>(null);
   const [zoneLoading,     setZoneLoading]     = useState(false);
   const [zoneError,       setZoneError]       = useState<string | null>(null);
   const [submitting,      setSubmitting]      = useState(false);
+  const [quoteId,         setQuoteId]         = useState<string | null>(null);
   const [userLocation,    setUserLocation]    = useState<LatLng | null>(null);
   const [locationGranted, setLocationGranted] = useState(false);
   const [searchQuery,     setSearchQuery]     = useState('');
@@ -131,7 +153,7 @@ export default function CustomerScreen() {
     })();
   }, []);
 
-  // Zone calc when both pins set
+  // Zone calc when both pins set - calls Edge Function for pricing preview
   useEffect(() => {
     if (!pickup || !dropoff) { setDelivery(null); setZoneError(null); return; }
     let cancelled = false;
@@ -139,11 +161,42 @@ export default function CustomerScreen() {
       setZoneLoading(true);
       setZoneError(null);
       try {
-        const result = await calcDelivery(
-          pickup.latitude, pickup.longitude,
-          dropoff.latitude, dropoff.longitude,
-        );
-        if (!cancelled) setDelivery(result);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+
+        const response = await fetch(EDGE_FUNCTION_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            customer_id: session.user.id,
+            partner_id: '', // Will be filled by Edge Function or we need a partner picker
+            category: 'Auto Parts', // Default, will be overridden
+            pickup_address: '',
+            pickup_lat: pickup.latitude,
+            pickup_lng: pickup.longitude,
+            dropoff_address: '',
+            dropoff_lat: dropoff.latitude,
+            dropoff_lng: dropoff.longitude,
+            estimated_duration_minutes: 0,
+            notes: '',
+          }),
+        });
+
+        const data: CreateDeliveryResponse = await response.json();
+        if (!cancelled) {
+          if (data.success && data.pricing_breakdown) {
+            setDelivery(data.pricing_breakdown);
+            setQuoteId(data.quote_id || null);
+          } else {
+            setZoneError(data.error === 'OUTSIDE_SERVICE_AREA'
+              ? 'Outside service area'
+              : data.error || 'Could not calculate route. Try again.');
+            setDelivery(null);
+          }
+        }
       } catch (err: any) {
         if (!cancelled) {
           setZoneError(err.message === 'OUTSIDE_SERVICE_AREA'
@@ -199,7 +252,7 @@ export default function CustomerScreen() {
     sheetRef.current?.snapToIndex(1);
   }
 
-  async function useCurrentLocationFor(mode: PinMode) {
+  async function setCurrentLocationFor(mode: PinMode) {
     if (!userLocation) return;
     const address = await reverseGeocode(userLocation.latitude, userLocation.longitude);
     if (mode === 'pickup') {
@@ -233,39 +286,59 @@ export default function CustomerScreen() {
       return;
     }
     setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSubmitting(false); Alert.alert('Not logged in'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setSubmitting(false); Alert.alert('Not logged in'); return; }
 
-    const { error } = await supabase.from('deliveries').insert({
-      customer_id:                 user.id,
-      category,
-      pickup_address:              pickupAddress || `${pickup.latitude.toFixed(5)}, ${pickup.longitude.toFixed(5)}`,
-      pickup_lat:                  pickup.latitude,
-      pickup_lng:                  pickup.longitude,
-      dropoff_address:             dropoffAddress || `${dropoff.latitude.toFixed(5)}, ${dropoff.longitude.toFixed(5)}`,
-      dropoff_lat:                 dropoff.latitude,
-      dropoff_lng:                 dropoff.longitude,
-      distance_miles:              delivery.distanceMiles,
-      estimated_duration_minutes:  delivery.durationMinutes,
-      route_polyline:              delivery.routePolyline,
-      zone_assigned:               delivery.zone,
-      fee_charged:                 delivery.fee,
-      driver_payout:               delivery.driverPayout,
-      platform_cut:                delivery.platformCut,
-      status:                      'pending',
-      notes:                       notes.trim() || null,
+    // Get a partner - for now use first approved partner, but ideally user selects
+    const { data: partners, error: partnerError } = await supabase
+      .from('partners')
+      .select('id')
+      .eq('approved', true)
+      .limit(1);
+
+    if (partnerError || !partners || partners.length === 0) {
+      setSubmitting(false);
+      Alert.alert('Error', 'No approved partners available');
+      return;
+    }
+
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        customer_id: session.user.id,
+        partner_id: partners[0].id,
+        category,
+        pickup_address: pickupAddress || `${pickup.latitude.toFixed(5)}, ${pickup.longitude.toFixed(5)}`,
+        pickup_lat: pickup.latitude,
+        pickup_lng: pickup.longitude,
+        dropoff_address: dropoffAddress || `${dropoff.latitude.toFixed(5)}, ${dropoff.longitude.toFixed(5)}`,
+        dropoff_lat: dropoff.latitude,
+        dropoff_lng: dropoff.longitude,
+        estimated_duration_minutes: delivery.estimated_duration_minutes || 0,
+        notes: notes.trim() || null,
+      }),
     });
 
+    const data: CreateDeliveryResponse = await response.json();
     setSubmitting(false);
-    if (error) { Alert.alert('Error', error.message); return; }
+
+    if (!data.success) {
+      Alert.alert('Error', data.error || 'Failed to create delivery');
+      return;
+    }
 
     Alert.alert(
       '✅ Delivery Requested',
-      `Zone ${delivery.zone}  ·  ${delivery.distanceMiles.toFixed(1)} mi  ·  $${delivery.fee} flat fee\nA driver will claim your delivery shortly.`,
+      `Zone ${data.pricing_breakdown?.zone}  ·  ${data.pricing_breakdown?.distance_miles.toFixed(1)} mi  ·  $${data.pricing_breakdown?.customer_total} flat fee\nA driver will claim your delivery shortly.`,
       [{ text: 'OK', onPress: () => {
         setPickup(null); setDropoff(null); setDelivery(null);
         setPickupAddress(''); setDropoffAddress('');
         setNotes(''); setPinMode('pickup');
+        setQuoteId(null);
         sheetRef.current?.snapToIndex(1);
       }}]
     );
@@ -351,21 +424,21 @@ export default function CustomerScreen() {
           {locationGranted && (
             <View style={styles.locBtnRow}>
               {!pickup && (
-                <TouchableOpacity style={styles.locBtn} onPress={() => useCurrentLocationFor('pickup')}>
+                <TouchableOpacity style={styles.locBtn} onPress={() => setCurrentLocationFor('pickup')}>
                   <Text style={styles.locBtnText}>📱 My location as pickup</Text>
                 </TouchableOpacity>
               )}
               {pickup && !dropoff && (
-                <TouchableOpacity style={styles.locBtn} onPress={() => useCurrentLocationFor('dropoff')}>
+                <TouchableOpacity style={styles.locBtn} onPress={() => setCurrentLocationFor('dropoff')}>
                   <Text style={styles.locBtnText}>📱 My location as dropoff</Text>
                 </TouchableOpacity>
               )}
               {pickup && dropoff && (
                 <View style={styles.locBtnRow}>
-                  <TouchableOpacity style={[styles.locBtn, { flex: 1, marginRight: 6 }]} onPress={() => useCurrentLocationFor('pickup')}>
+                  <TouchableOpacity style={[styles.locBtn, { flex: 1, marginRight: 6 }]} onPress={() => setCurrentLocationFor('pickup')}>
                     <Text style={styles.locBtnText}>📍 Here as pickup</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.locBtn, { flex: 1 }]} onPress={() => useCurrentLocationFor('dropoff')}>
+                  <TouchableOpacity style={[styles.locBtn, { flex: 1 }]} onPress={() => setCurrentLocationFor('dropoff')}>
                     <Text style={styles.locBtnText}>🏁 Here as dropoff</Text>
                   </TouchableOpacity>
                 </View>
@@ -462,11 +535,11 @@ export default function CustomerScreen() {
             <View style={styles.zoneRow}>
               <View>
                 <Text style={styles.zoneName}>
-                  Zone {delivery.zone}  ·  {delivery.distanceMiles.toFixed(1)} mi  ·  ~{delivery.durationMinutes} min
+                  Zone {delivery.zone}  ·  {delivery.distance_miles.toFixed(1)} mi  ·  ~{delivery.estimated_duration_minutes || 0} min
                 </Text>
-                <Text style={styles.zoneDetail}>Driver earns ${delivery.driverPayout.toFixed(2)}</Text>
+                <Text style={styles.zoneDetail}>Driver earns ${delivery.driver_payout.toFixed(2)}</Text>
               </View>
-              <Text style={styles.zonePrice}>${delivery.fee}</Text>
+              <Text style={styles.zonePrice}>${delivery.customer_total.toFixed(2)}</Text>
             </View>
           )}
 

@@ -52,3 +52,13 @@ export const useAppMode = create<AppModeState>()((set, get) => ({
     }
   },
 }));
+
+// Convenience functions for switching modes
+export async function saveAppMode(mode: AppMode): Promise<void> {
+  // Just set the mode in the store; persistence is handled by the store
+  useAppMode.getState().setMode(mode);
+}
+
+export async function clearAppMode(): Promise<void> {
+  useAppMode.setState({ currentMode: 'customer', availableModes: ['customer'] });
+}

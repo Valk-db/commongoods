@@ -99,7 +99,7 @@ export default function PartnerSettingsScreen() {
         <Text style={styles.notLinkedIcon}>⚙️</Text>
         <Text style={styles.notLinkedTitle}>Account not linked yet</Text>
         <Text style={styles.notLinkedBody}>
-          We're still setting up your restaurant in CommonGoods. Settings will be available here once it's ready.
+          We&apos;re still setting up your restaurant in CommonGoods. Settings will be available here once it&apos;s ready.
         </Text>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backLink}>← Go back</Text>

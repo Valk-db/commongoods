@@ -11,13 +11,14 @@ import { uploadPhoto } from '../lib/storage';
 
 interface MenuItem {
   id: string;
-  partner_id: string;
+  partner_id: string | null;
   name: string;
   description: string | null;
   price: number;
   category: string | null;
   photo_url: string | null;
-  active: boolean;
+  active: boolean | null;
+  created_at: string | null;
 }
 
 export default function PartnerMenuScreen() {
@@ -165,7 +166,7 @@ export default function PartnerMenuScreen() {
         <Text style={styles.notLinkedIcon}>🍽️</Text>
         <Text style={styles.notLinkedTitle}>Account not linked yet</Text>
         <Text style={styles.notLinkedBody}>
-          We're still setting up your restaurant in CommonGoods. You'll be able to manage your menu here once it's ready.
+          We&apos;re still setting up your restaurant in CommonGoods. You&apos;ll be able to manage your menu here once it&apos;s ready.
         </Text>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backLink}>← Go back</Text>

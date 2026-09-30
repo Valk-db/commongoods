@@ -23,7 +23,8 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled:   '#7a4a4a',
 };
 
-function formatTime(iso: string) {
+function formatTime(iso: string | null | undefined) {
+  if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
@@ -92,7 +93,7 @@ export default function PartnerOrdersScreen() {
         <Text style={styles.notLinkedIcon}>📋</Text>
         <Text style={styles.notLinkedTitle}>Account not linked yet</Text>
         <Text style={styles.notLinkedBody}>
-          We're still setting up your restaurant in CommonGoods. Orders will show up here once it's ready.
+          We&apos;re still setting up your restaurant in CommonGoods. Orders will show up here once it&apos;s ready.
         </Text>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backLink}>← Go back</Text>
@@ -101,15 +102,15 @@ export default function PartnerOrdersScreen() {
     );
   }
 
-  const active = orders.filter(o => ['pending', 'claimed', 'in_progress'].includes(o.status));
-  const past   = orders.filter(o => ['completed', 'cancelled'].includes(o.status));
+  const active = orders.filter(o => o.status && ['pending', 'claimed', 'in_progress'].includes(o.status));
+  const past   = orders.filter(o => o.status && ['completed', 'cancelled'].includes(o.status));
 
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfWeek  = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
 
-  const todayOrders = orders.filter(o => new Date(o.requested_at) >= startOfToday);
-  const weekOrders  = orders.filter(o => new Date(o.requested_at) >= startOfWeek);
+  const todayOrders = orders.filter(o => o.requested_at && new Date(o.requested_at) >= startOfToday);
+  const weekOrders  = orders.filter(o => o.requested_at && new Date(o.requested_at) >= startOfWeek);
 
   return (
     <ScrollView
@@ -154,11 +155,12 @@ export default function PartnerOrdersScreen() {
 }
 
 function OrderCard({ order: o }: { order: Delivery }) {
+  const status = o.status ?? 'pending';
   return (
-    <View style={[styles.card, { borderLeftColor: STATUS_COLOR[o.status] }]}>
+    <View style={[styles.card, { borderLeftColor: STATUS_COLOR[status] }]}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardCategory}>{o.category}</Text>
-        <Text style={[styles.cardStatus, { color: STATUS_COLOR[o.status] }]}>{STATUS_LABEL[o.status]}</Text>
+        <Text style={[styles.cardStatus, { color: STATUS_COLOR[status] }]}>{STATUS_LABEL[status]}</Text>
       </View>
       <Text style={styles.cardRoute}>🏁 {o.dropoff_address}</Text>
       <View style={styles.cardFooter}>

@@ -10,8 +10,8 @@ interface PartnerRow {
   id: string;
   business_name: string;
   address: string;
-  approved: boolean;
-  founding_merchant: boolean;
+  approved: boolean | null;
+  founding_merchant: boolean | null;
 }
 
 export default function PartnerHomeScreen() {
@@ -73,7 +73,7 @@ export default function PartnerHomeScreen() {
         <Text style={styles.notLinkedIcon}>🤝</Text>
         <Text style={styles.notLinkedTitle}>Account not linked yet</Text>
         <Text style={styles.notLinkedBody}>
-          We're still setting up your restaurant in CommonGoods. You'll see your dashboard here once it's ready — usually within a day of signing up.
+          We&apos;re still setting up your restaurant in CommonGoods. You&apos;ll see your dashboard here once it&apos;s ready — usually within a day of signing up.
         </Text>
 
         <View style={styles.footer}>

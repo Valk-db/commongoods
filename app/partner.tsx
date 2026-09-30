@@ -42,9 +42,9 @@ export default function PartnerScreen() {
         <Text style={styles.confirmIcon}>🤝</Text>
         <Text style={styles.confirmTitle}>Thanks for reaching out!</Text>
         <Text style={styles.confirmBody}>
-          We'll be in touch within a day or two to set up your free pilot listing —
+          We&apos;ll be in touch within a day or two to set up your free pilot listing —
           no commitment, no fees, no contracts.{'\n\n'}
-          As a founding merchant, you'll never pay an onboarding fee, even after the pilot ends.
+          As a founding merchant, you&apos;ll never pay an onboarding fee, even after the pilot ends.
         </Text>
       </View>
     );
@@ -58,7 +58,7 @@ export default function PartnerScreen() {
         <Text style={styles.title}>Join the pilot. Free, forever.</Text>
         <Text style={styles.subtitle}>
           CommonGoods is launching in St. Augustine with a small group of founding merchants.
-          We're handling setup ourselves — photos, menu, pickup instructions — at no cost to you.
+          We&apos;re handling setup ourselves — photos, menu, pickup instructions — at no cost to you.
         </Text>
 
         <View style={styles.pilotBox}>
@@ -83,7 +83,7 @@ export default function PartnerScreen() {
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>INTERESTED? LET'S TALK</Text>
+        <Text style={styles.sectionLabel}>INTERESTED? LET&apos;S TALK</Text>
 
         <TextInput
           style={styles.input}

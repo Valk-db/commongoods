@@ -179,15 +179,15 @@ export default function HomeScreen() {
 
         {shownOrder && (
           <TouchableOpacity
-            style={[styles.statusCard, { borderLeftColor: STATUS_COLOR[shownOrder.status] }]}
+            style={[styles.statusCard, { borderLeftColor: STATUS_COLOR[shownOrder.status ?? 'pending'] }]}
             onPress={() => router.push('/orders')}
             activeOpacity={0.8}
           >
             <Text style={styles.statusCardLabel}>
               {activeOrder ? 'YOUR DELIVERY' : 'LAST DELIVERY'}
             </Text>
-            <Text style={[styles.statusText, { color: STATUS_COLOR[shownOrder.status] }]}>
-              {STATUS_LABEL[shownOrder.status]}
+            <Text style={[styles.statusText, { color: STATUS_COLOR[shownOrder.status ?? 'pending'] }]}>
+              {STATUS_LABEL[shownOrder.status ?? 'pending']}
             </Text>
             <Text style={styles.statusMeta}>
               {shownOrder.category}  ·  Zone {shownOrder.zone_assigned}  ·  ${shownOrder.fee_charged}

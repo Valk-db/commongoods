@@ -93,17 +93,18 @@ export interface MileageEntry {
 export async function calcMileageDeduction(miles: number, date: Date = new Date()): Promise<number> {
   const rate = await config.getMileageRate(date);
   if (!rate) {
-    // Fallback to current year rate if not found
+    // Fallback to current year rate if not found (in dollars per mile)
     const currentYear = date.getFullYear();
     const fallbackRates: Record<number, number> = {
-      2024: 67,
-      2025: 70,
-      2026: 72.5 // H1, but we'll use 72.5 as average
+      2024: 0.67,
+      2025: 0.70,
+      2026: 0.725 // H1, but we'll use 0.725 as average
     };
-    const cents = fallbackRates[currentYear] || 67;
-    return parseFloat((miles * cents / 100).toFixed(2));
+    const dollarsPerMile = fallbackRates[currentYear] || 0.67;
+    return parseFloat((miles * dollarsPerMile).toFixed(2));
   }
-  return parseFloat((miles * rate.business_cents / 100).toFixed(2));
+  // rate.business_cents is now in dollars per mile (e.g., 0.6700)
+  return parseFloat((miles * rate.business_cents).toFixed(2));
 }
 
 export async function formatMileageEntry(

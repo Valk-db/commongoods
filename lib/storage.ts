@@ -11,7 +11,7 @@ export async function uploadPhoto(
 ): Promise<string | null> {
   try {
     const base64 = await FileSystem.readAsStringAsync(localUri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
 
     const ext = localUri.split('.').pop()?.toLowerCase() || 'jpg';

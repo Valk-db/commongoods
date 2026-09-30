@@ -141,7 +141,7 @@ export default function AuthScreen() {
         <Text style={styles.confirmBody}>
           We sent a confirmation link to{'\n'}
           <Text style={styles.confirmEmail}>{email}</Text>
-          {'\n\n'}You're joining as a <Text style={styles.confirmEmail}>{roleLabel}</Text>.
+          {'\n\n'}You&apos;re joining as a <Text style={styles.confirmEmail}>{roleLabel}</Text>.
           {refRole === 'driver' && '\n\nOnce confirmed, your account will be reviewed before your first delivery.'}
           {refRole === 'partner' && '\n\nOnce confirmed, your restaurant will be set up by our team.'}
         </Text>

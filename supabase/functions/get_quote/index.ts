@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-interface CreateDeliveryRequest {
+interface GetQuoteRequest {
   customer_id: string;
   partner_id: string;
   category: string;
@@ -13,14 +13,13 @@ interface CreateDeliveryRequest {
   dropoff_lng: number;
   estimated_duration_minutes?: number;
   notes?: string;
-  idempotency_key?: string;
 }
 
-interface CreateDeliveryResponse {
+interface GetQuoteResponse {
   success: boolean;
   error?: string;
-  delivery_id?: string;
   quote_id?: string;
+  expires_at?: string;
   pricing_breakdown?: {
     customer_total: number;
     components: Array<{ name: string; amount: number; description: string; is_adjustment?: boolean }>;
@@ -34,82 +33,11 @@ interface CreateDeliveryResponse {
   };
 }
 
-// Rate limiting: track requests per customer per minute
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 10; // max 10 requests per minute
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-
-// Idempotency key storage (in production, use Redis or DB)
-const idempotencyStore = new Map<string, { response: CreateDeliveryResponse; expiresAt: number }>();
-const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-function checkRateLimit(customerId: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(customerId);
-
-  if (!entry || entry.resetAt < now) {
-    rateLimitMap.set(customerId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
-}
-
-function checkIdempotency(key: string): CreateDeliveryResponse | null {
-  const entry = idempotencyStore.get(key);
-  if (!entry) return null;
-
-  if (entry.expiresAt < Date.now()) {
-    idempotencyStore.delete(key);
-    return null;
-  }
-
-  return entry.response;
-}
-
-function storeIdempotency(key: string, response: CreateDeliveryResponse): void {
-  idempotencyStore.set(key, {
-    response,
-    expiresAt: Date.now() + IDEMPOTENCY_TTL_MS
-  });
-}
-
-function sanitizeError(error: unknown): string {
-  // Never return raw error messages to clients
-  if (error instanceof Error) {
-    // Only expose safe error codes
-    const safeErrors = [
-      'OUTSIDE_SERVICE_AREA',
-      'invalid_distance',
-      'missing_customer_id',
-      'invalid_customer_id',
-      'missing_partner_id',
-      'invalid_partner',
-      'partner_not_approved',
-      'pickup_mismatch',
-      'invalid_category',
-      'notes_too_long',
-      'invalid_coordinates',
-      'no_route_found',
-      'Mapbox API error'
-    ];
-    if (safeErrors.includes(error.message)) {
-      return error.message;
-    }
-  }
-  return "Internal server error";
-}
-
 Deno.serve(async (req: Request) => {
   // CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, idempotency-key",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
 
@@ -149,27 +77,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Check idempotency key from header
-    const idempotencyKey = req.headers.get("idempotency-key");
-    if (idempotencyKey) {
-      const cached = checkIdempotency(idempotencyKey);
-      if (cached) {
-        return new Response(JSON.stringify(cached), {
-          status: cached.success ? 200 : 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    // Check rate limit
-    if (!checkRateLimit(user.id)) {
-      return new Response(JSON.stringify({ success: false, error: "Rate limit exceeded" }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
-      });
-    }
-
-    const body: CreateDeliveryRequest = await req.json();
+    const body: GetQuoteRequest = await req.json();
 
     // Validate required fields
     if (!body.customer_id || body.customer_id !== user.id) {
@@ -215,62 +123,6 @@ Deno.serve(async (req: Request) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // Validate string lengths
-    if (body.pickup_address.length > 500 || body.dropoff_address.length > 500) {
-      return new Response(JSON.stringify({ success: false, error: "Address too long (max 500 chars)" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Verify partner exists and is approved, and pickup matches
-    const serviceRoleSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const { data: partner, error: partnerError } = await serviceRoleSupabase
-      .from('partners')
-      .select('id, lat, lng, approved')
-      .eq('id', body.partner_id)
-      .single();
-
-    if (partnerError || !partner) {
-      return new Response(JSON.stringify({ success: false, error: "Invalid partner" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!partner.approved) {
-      return new Response(JSON.stringify({ success: false, error: "Partner not approved" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Verify pickup location matches partner's stored location (within 100m)
-    if (partner.lat && partner.lng) {
-      const R = 6371e3; // Earth radius in meters
-      const φ1 = body.pickup_lat * Math.PI / 180;
-      const φ2 = partner.lat * Math.PI / 180;
-      const Δφ = (partner.lat - body.pickup_lat) * Math.PI / 180;
-      const Δλ = (partner.lng - body.pickup_lng) * Math.PI / 180;
-
-      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) *
-        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c; // meters
-
-      if (distance > 100) { // 100 meters tolerance
-        return new Response(JSON.stringify({ success: false, error: "Pickup location does not match partner" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
     }
 
     // Call Mapbox Directions API to get distance and route
@@ -331,23 +183,18 @@ Deno.serve(async (req: Request) => {
     const durationMinutes = Math.ceil(durationSeconds / 60);
     const routePolyline = route.geometry;
 
-    // Get max distance from config
-    const { data: configData, error: configError } = await serviceRoleSupabase.rpc('resolve_config', {
-      p_key: 'geo.max_distance_miles',
-      p_ctx: {},
-      p_at: new Date().toISOString()
-    });
+    // Check max distance from config (will be validated in RPC)
+    // We'll let the RPC handle the OUTSIDE_SERVICE_AREA check
 
-    const maxDistance = configData || 20;
-    if (distanceMiles > maxDistance) {
-      return new Response(JSON.stringify({ success: false, error: "OUTSIDE_SERVICE_AREA" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Now call the create_delivery RPC with service role to get pricing
+    // We pass a special flag to indicate this is a quote request (not actual delivery)
+    const serviceRoleSupabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    // Now call the create_delivery RPC with service role
-    const { data, error } = await serviceRoleSupabase.rpc("create_delivery", {
+    // Call a get_quote RPC that computes pricing but doesn't create delivery
+    const { data, error } = await serviceRoleSupabase.rpc("get_quote", {
       p_customer_id: body.customer_id,
       p_partner_id: body.partner_id,
       p_category: body.category,
@@ -364,27 +211,21 @@ Deno.serve(async (req: Request) => {
     });
 
     if (error) {
-      console.error("create_delivery RPC error:", error);
-      return new Response(JSON.stringify({ success: false, error: sanitizeError(error) }), {
+      console.error("get_quote RPC error:", error);
+      return new Response(JSON.stringify({ success: false, error: error.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const result = data[0] as CreateDeliveryResponse;
-
-    // Store idempotency key response if provided
-    if (idempotencyKey && result.success) {
-      storeIdempotency(idempotencyKey, result);
-    }
-
+    const result = data[0] as GetQuoteResponse;
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("create_delivery error:", err);
-    return new Response(JSON.stringify({ success: false, error: sanitizeError(err) }), {
+    console.error("get_quote error:", err);
+    return new Response(JSON.stringify({ success: false, error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

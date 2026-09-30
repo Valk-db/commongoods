@@ -22,7 +22,8 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled:   '#7a4a4a',
 };
 
-function formatDate(iso: string) {
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -99,8 +100,8 @@ export default function OrdersScreen() {
 
   const isDriver    = profile?.role === 'driver';
   const completed   = deliveries.filter(d => d.status === 'completed');
-  const active      = deliveries.filter(d => ['pending', 'claimed', 'in_progress'].includes(d.status));
-  const past        = deliveries.filter(d => ['completed', 'cancelled'].includes(d.status));
+  const active      = deliveries.filter(d => d.status && ['pending', 'claimed', 'in_progress'].includes(d.status));
+  const past        = deliveries.filter(d => d.status && ['completed', 'cancelled'].includes(d.status));
 
   return (
     <ScrollView
@@ -158,12 +159,13 @@ export default function OrdersScreen() {
 }
 
 function DeliveryCard({ delivery: d, isDriver }: { delivery: Delivery; isDriver: boolean }) {
+  const status = d.status ?? 'pending';
   return (
-    <View style={[styles.card, { borderLeftColor: STATUS_COLOR[d.status] }]}>
+    <View style={[styles.card, { borderLeftColor: STATUS_COLOR[status] }]}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardCategory}>{d.category}</Text>
-        <Text style={[styles.cardStatus, { color: STATUS_COLOR[d.status] }]}>
-          {STATUS_LABEL[d.status]}
+        <Text style={[styles.cardStatus, { color: STATUS_COLOR[status] }]}>
+          {STATUS_LABEL[status]}
         </Text>
       </View>
       <Text style={styles.cardRoute}>↑ {d.pickup_address}</Text>
