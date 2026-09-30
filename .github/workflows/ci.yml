@@ -56,8 +56,11 @@ jobs:
         with:
           version: latest
 
+      - name: Verify config.toml
+        run: cat config.toml
+
       - name: Start local Supabase (applies all migrations from scratch)
-        run: supabase start
+        run: supabase start --debug
 
       - name: Run pgTAP tests
         run: supabase test db
