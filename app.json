@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "CommonGoods",
+    "slug": "commongoods",
+    "version": "1.0.0",
+    "scheme": "commongoods",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a1a1a"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.commongoods.app"
+    },
+    "android": {
+      "package": "com.commongoods.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
