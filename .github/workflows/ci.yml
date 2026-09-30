@@ -60,7 +60,7 @@ jobs:
         run: cat config.toml
 
       - name: Start local Supabase (applies all migrations from scratch)
-        run: supabase start --debug
+        run: supabase start --no-container-check
 
       - name: Run pgTAP tests
         run: supabase test db
