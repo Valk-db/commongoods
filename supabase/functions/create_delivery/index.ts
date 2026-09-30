@@ -274,63 +274,86 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Call Mapbox Directions API to get distance and route
-    const mapboxToken = Deno.env.get("MAPBOX_SECRET_TOKEN");
-    if (!mapboxToken) {
-      return new Response(JSON.stringify({ success: false, error: "Mapbox token not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Check for mock routing provider (for tests)
+    const routingProvider = Deno.env.get("ROUTING_PROVIDER");
+    let distanceMiles: number;
+    let durationMinutes: number;
 
-    const directionsUrl = new URL("https://api.mapbox.com/directions/v5/mapbox/driving/");
-    directionsUrl.pathname += `${body.pickup_lng},${body.pickup_lat};${body.dropoff_lng},${body.dropoff_lat}`;
-    directionsUrl.searchParams.set("geometries", "polyline6");
-    directionsUrl.searchParams.set("overview", "simplified");
-    directionsUrl.searchParams.set("access_token", mapboxToken);
+    if (routingProvider === "mock") {
+      // Deterministic mock: haversine distance + simple duration estimate
+      const R = 6371000; // Earth radius in meters
+      const φ1 = body.pickup_lat * Math.PI / 180;
+      const φ2 = body.dropoff_lat * Math.PI / 180;
+      const Δφ = (body.dropoff_lat - body.pickup_lat) * Math.PI / 180;
+      const Δλ = (body.dropoff_lng - body.pickup_lng) * Math.PI / 180;
 
-    // Add timeout and retry
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distanceMeters = R * c;
+      distanceMiles = distanceMeters * 0.000621371;
 
-    let directionsResponse: Response;
-    try {
-      directionsResponse = await fetch(directionsUrl.toString(), { signal: controller.signal });
-    } catch (e) {
-      clearTimeout(timeoutId);
-      // Retry once
+      // Simple duration: 30 mph average = 2 min/mile + 5 min base
+      durationMinutes = Math.ceil(distanceMiles * 2 + 5);
+    } else {
+      // Call Mapbox Directions API to get distance and route
+      const mapboxToken = Deno.env.get("MAPBOX_SECRET_TOKEN");
+      if (!mapboxToken) {
+        return new Response(JSON.stringify({ success: false, error: "Mapbox token not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const directionsUrl = new URL("https://api.mapbox.com/directions/v5/mapbox/driving/");
+      directionsUrl.pathname += `${body.pickup_lng},${body.pickup_lat};${body.dropoff_lng},${body.dropoff_lat}`;
+      directionsUrl.searchParams.set("geometries", "polyline6");
+      directionsUrl.searchParams.set("overview", "simplified");
+      directionsUrl.searchParams.set("access_token", mapboxToken);
+
+      // Add timeout and retry
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      let directionsResponse: Response;
       try {
-        directionsResponse = await fetch(directionsUrl.toString());
-      } catch (e2) {
+        directionsResponse = await fetch(directionsUrl.toString(), { signal: controller.signal });
+      } catch (e) {
+        clearTimeout(timeoutId);
+        // Retry once
+        try {
+          directionsResponse = await fetch(directionsUrl.toString());
+        } catch (e2) {
+          return new Response(JSON.stringify({ success: false, error: "Mapbox API error" }), {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+      clearTimeout(timeoutId);
+
+      if (!directionsResponse.ok) {
         return new Response(JSON.stringify({ success: false, error: "Mapbox API error" }), {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    }
-    clearTimeout(timeoutId);
 
-    if (!directionsResponse.ok) {
-      return new Response(JSON.stringify({ success: false, error: "Mapbox API error" }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      const directionsData = await directionsResponse.json();
+      if (!directionsData.routes || directionsData.routes.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "No route found" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-    const directionsData = await directionsResponse.json();
-    if (!directionsData.routes || directionsData.routes.length === 0) {
-      return new Response(JSON.stringify({ success: false, error: "No route found" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const route = directionsData.routes[0];
+      const distanceMeters = route.distance;
+      distanceMiles = distanceMeters * 0.000621371;
+      const durationSeconds = route.duration;
+      durationMinutes = Math.ceil(durationSeconds / 60);
     }
-
-    const route = directionsData.routes[0];
-    const distanceMeters = route.distance;
-    const distanceMiles = distanceMeters * 0.000621371;
-    const durationSeconds = route.duration;
-    const durationMinutes = Math.ceil(durationSeconds / 60);
-    const routePolyline = route.geometry;
 
     // Get max distance from config
     const { data: configData, error: configError } = await serviceRoleSupabase.rpc('resolve_config', {

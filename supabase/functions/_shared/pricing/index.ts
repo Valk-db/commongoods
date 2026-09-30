@@ -3,5 +3,5 @@
  * Exports all pricing functionality
  */
 
-export * from './config.ts';
-export * from './engine.ts';
+export * from './config';
+export * from './engine';

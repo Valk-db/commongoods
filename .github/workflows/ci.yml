@@ -30,6 +30,9 @@ jobs:
       - name: Pricing golden tests
         run: npx tsx lib/pricing/test.ts
 
+      - name: No direct table mutations from the app
+        run: npx tsx lib/tests/no-direct-mutations.test.ts
+
   gitleaks:
     runs-on: ubuntu-latest
     steps:
@@ -60,3 +63,38 @@ jobs:
         run: |
           supabase gen types typescript --local > /tmp/supabase.types.ts
           diff -u lib/supabase.types.ts /tmp/supabase.types.ts
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [database-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Serve Edge Functions with mock routing
+        run: |
+          printf 'ROUTING_PROVIDER=mock\n' > supabase/functions/.env
+          supabase functions serve --env-file supabase/functions/.env > /tmp/functions.log 2>&1 &
+          sleep 15
+
+      - name: Run integration tests
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          npx tsx --test supabase/tests/integration/*.test.ts
+
+      - name: Show function logs on failure
+        if: failure()
+        run: cat /tmp/functions.log

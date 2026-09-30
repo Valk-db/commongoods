@@ -1,19 +1,15 @@
 /**
  * Pricing Module - Single Source of Truth for Pricing Logic
  *
- * This module contains:
- * - config.ts: TypeScript interfaces for pricing config
- * - engine.ts: Pure pricing calculation functions
- * - fixtures.ts: Golden test fixtures for validation
+ * This module re-exports the shared pricing engine from supabase/functions/_shared/pricing/
+ * to ensure there's only ONE source of truth for pricing calculations.
  *
  * Used by: Edge Functions, simulators, tests.
  * SQL functions should ONLY validate stored results against this.
  */
 
-export * from './config';
-export * from './engine';
-export * from './fixtures';
+export * from '../../supabase/functions/_shared/pricing/index';
 
-// Re-export types explicitly to avoid duplicate export warnings
-export type { PricingConfig, DriverPayConfig, PlatformConfig } from './config';
-export type { PricingInput, PricingComponent, PricingResult } from './config';
+// Re-export types explicitly
+export type { PricingConfig } from '../../supabase/functions/_shared/pricing/config';
+export type { PricingInput, PricingComponent, PricingResult } from '../../supabase/functions/_shared/pricing/config';

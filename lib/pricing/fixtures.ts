@@ -5,8 +5,8 @@
  * SQL functions should produce matching results.
  */
 
-import type { PricingConfig, PricingInput, PricingResult } from './config';
-import { calculatePricing, getZoneFromDistance, verifyComponentsSum } from './engine';
+import type { PricingConfig, PricingInput, PricingResult } from '../../supabase/functions/_shared/pricing/config';
+import { calculatePricing, getZoneFromDistance, verifyComponentsSum } from '../../supabase/functions/_shared/pricing/engine';
 
 // Default test config (matches seeded config_registry defaults)
 export const DEFAULT_TEST_CONFIG: PricingConfig = {

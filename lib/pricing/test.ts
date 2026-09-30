@@ -4,7 +4,7 @@
  */
 
 import { runFixtures, runZoneBoundaryTests, DEFAULT_TEST_CONFIG } from './fixtures';
-import { getZoneFromDistance, isPeakHour, calculatePricing } from './engine';
+import { getZoneFromDistance, isPeakHour, calculatePricing } from '../../supabase/functions/_shared/pricing/engine';
 
 // Run fixture tests
 console.log('=== Running Pricing Fixtures ===\n');
