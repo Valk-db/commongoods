@@ -51,7 +51,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: '2.31.0'
 
       - name: Start local Supabase (applies all migrations from scratch)
         run: supabase start --workdir ./supabase
@@ -79,7 +79,7 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: '2.31.0'
 
       - name: Start local Supabase
         run: supabase start --workdir ./supabase
