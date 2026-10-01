@@ -534,9 +534,9 @@ BEGIN
   -- Delete it and re-insert with driver role
   DELETE FROM public.profiles WHERE id = v_driver_id;
   INSERT INTO public.profiles (id, role) VALUES (v_driver_id, 'driver');
-  INSERT INTO public.drivers (profile_id, approved) VALUES (v_driver_id, false);
+  INSERT INTO public.drivers (id, approved) VALUES (v_driver_id, false);
   BEGIN
-    UPDATE public.drivers SET approved = true WHERE profile_id = v_driver_id;
+    UPDATE public.drivers SET approved = true WHERE id = v_driver_id;
     RAISE EXCEPTION 'Trigger should have blocked approved change';
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = 'P0001' THEN
