@@ -2,7 +2,3 @@ project_id = "commongoods"
 
 [db.migrations]
 schema_paths = ["migrations"]
-
-[functions]
-path = "functions"
-exclude = ["_shared"]
