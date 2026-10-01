@@ -16,13 +16,25 @@ BEGIN;
 SELECT plan(15);
 
 -- ============================================================================
--- Test 1: profiles - user cannot set is_admin = true on own row
+-- Test 1: profiles - user cannot set is_admin = true without auth.users record
 -- ============================================================================
-SELECT throws_ok(
-  'INSERT INTO public.profiles (id, role, is_admin) VALUES (gen_random_uuid(), ''customer'', true)',
-  '23503',  -- FK violation since no auth.users record
-  'INSERT with is_admin=true should fail (FK violation first)'
-);
+DO $$
+DECLARE
+  v_error_code text;
+BEGIN
+  BEGIN
+    INSERT INTO public.profiles (id, role, is_admin) VALUES (gen_random_uuid(), 'customer', true);
+    RAISE EXCEPTION 'Expected FK violation';
+  EXCEPTION WHEN foreign_key_violation THEN
+    v_error_code := SQLSTATE;
+  END;
+  IF v_error_code = '23503' THEN
+    PERFORM pass('INSERT with is_admin=true should fail (FK violation first)');
+  ELSE
+    RAISE EXCEPTION 'Expected FK violation, got %', v_error_code;
+  END IF;
+END;
+$$;
 
 -- ============================================================================
 -- Test 2: profiles - user cannot change role on own row
@@ -41,11 +53,9 @@ BEGIN
   -- Try to update role - should be blocked by trigger
   BEGIN
     UPDATE public.profiles SET role = 'driver' WHERE id = v_user_id;
-    -- If we get here, trigger didn't fire
     RAISE EXCEPTION 'Trigger should have blocked role change';
   EXCEPTION WHEN OTHERS THEN
     IF SQLSTATE = 'P0001' THEN
-      -- Expected: trigger raised exception
       PERFORM pass('UPDATE role should be blocked by trigger');
     ELSE
       RAISE;
