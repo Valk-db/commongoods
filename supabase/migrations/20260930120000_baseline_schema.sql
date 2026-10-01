@@ -1392,7 +1392,7 @@ $$;
 SELECT cron.schedule(
   'create-monthly-events-partition',
   '0 0 1 * *', -- first day of month at midnight
-  $$
+  $cron$
   DO $$
   DECLARE
     v_next_month date := date_trunc('month', now() + interval '1 month')::date;
@@ -1404,6 +1404,7 @@ SELECT cron.schedule(
       v_partition_name, v_start, v_end);
   END;
   $$
+  $cron$
 );
 
 -- ============================================================================
