@@ -530,8 +530,11 @@ BEGIN
   INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at)
   VALUES (gen_random_uuid(), 'test_driver_freeze_' || gen_random_uuid() || '@example.com', 'hash', now())
   RETURNING id INTO v_driver_id;
-  -- Trigger handle_new_user() auto-creates profile
-  UPDATE public.profiles SET role = 'driver' WHERE id = v_driver_id;
+  -- Trigger handle_new_user() auto-creates profile with role='customer'
+  -- We can't change role due to trigger, so insert profile directly with correct role
+  -- First delete the auto-created profile, then insert with driver role
+  DELETE FROM public.profiles WHERE id = v_driver_id;
+  INSERT INTO public.profiles (id, role) VALUES (v_driver_id, 'driver');
   INSERT INTO public.drivers (profile_id, approved) VALUES (v_driver_id, false);
   BEGIN
     UPDATE public.drivers SET approved = true WHERE profile_id = v_driver_id;
