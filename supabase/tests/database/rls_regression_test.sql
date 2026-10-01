@@ -142,9 +142,8 @@ SELECT CASE WHEN NOT EXISTS (
 ) THEN pass('hardcoded admin email policy removed from menu_items') ELSE fail('hardcoded admin email policy still exists on menu_items') END;
 
 -- ============================================================================
--- Test 6: anon role has no table access to sensitive tables
+-- Test 6: GRANTs are only to authenticated/service_role, not anon
 -- ============================================================================
--- These test that GRANTs don't exist (RLS is the access control, not GRANTs)
 SELECT CASE WHEN NOT EXISTS (
   SELECT 1 FROM information_schema.table_privileges
   WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'profiles' AND privilege_type = 'SELECT'
@@ -194,7 +193,7 @@ SELECT CASE WHEN NOT EXISTS (
   WHERE grantee = 'anon' AND routine_schema = 'public' AND routine_name = 'get_my_role' AND privilege_type = 'EXECUTE'
 ) THEN pass('anon cannot EXECUTE get_my_role()') ELSE fail('anon can EXECUTE get_my_role()') END;
 
--- handle_new_user is a trigger function, may have different privileges
+-- check_user_role is a helper function
 SELECT CASE WHEN NOT EXISTS (
   SELECT 1 FROM information_schema.routine_privileges
   WHERE grantee = 'anon' AND routine_schema = 'public' AND routine_name = 'check_user_role' AND privilege_type = 'EXECUTE'
