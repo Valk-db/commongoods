@@ -862,7 +862,7 @@ CREATE TABLE public.referral_codes (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.referral_codes ENABLE ROW LEVEL SECURITY.
+ALTER TABLE public.referral_codes ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "referral_codes_select_authenticated" ON public.referral_codes
   FOR SELECT TO authenticated USING (true);
@@ -902,7 +902,7 @@ CREATE TABLE public.referral_redemptions (
   role text NOT NULL CHECK (role IN ('customer', 'driver', 'partner'))
 );
 
-ALTER TABLE public.referral_redemptions ENABLE ROW LEVEL SECURITY.
+ALTER TABLE public.referral_redemptions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "referral_redemptions_select_own" ON public.referral_redemptions
   FOR SELECT USING (redeemed_by = auth.uid() OR private.is_admin());
@@ -926,7 +926,7 @@ CREATE TABLE public.event_catalog (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.event_catalog ENABLE ROW LEVEL SECURITY.
+ALTER TABLE public.event_catalog ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "event_catalog_select_authenticated" ON public.event_catalog
   FOR SELECT TO authenticated USING (true);
@@ -957,7 +957,7 @@ CREATE TABLE public.events (
   os text
 ) PARTITION BY RANGE (occurred_at);
 
-ALTER TABLE public.events ENABLE ROW LEVEL SECURITY.
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "events_select_admin" ON public.events
   FOR SELECT USING (private.is_admin());
@@ -1015,7 +1015,7 @@ CREATE TABLE public.ratings_and_reviews (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.ratings_and_reviews ENABLE ROW LEVEL SECURITY.
+ALTER TABLE public.ratings_and_reviews ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "ratings_select_participant" ON public.ratings_and_reviews
   FOR SELECT USING (
@@ -1048,7 +1048,7 @@ CREATE TABLE public.route_points (
   recorded_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE public.route_points ENABLE ROW LEVEL SECURITY.
+ALTER TABLE public.route_points ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "route_points_select_driver" ON public.route_points
   FOR SELECT USING (
