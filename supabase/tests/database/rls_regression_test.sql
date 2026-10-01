@@ -13,7 +13,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 BEGIN;
 
 -- Plan: number of tests
-SELECT plan(11);
+SELECT plan(28);
 
 -- ============================================================================
 -- Test 1: profiles - user cannot set is_admin = true without auth.users record
