@@ -453,14 +453,53 @@ $$;
 -- ============================================================================
 -- Test 9: Key functions exist
 -- ============================================================================
-SELECT has_function('public', 'get_available_jobs', 0,
-  'get_available_jobs() function exists');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'get_available_jobs'
+      AND p.pronargs = 0
+  ) THEN
+    PERFORM pass('get_available_jobs() function exists');
+  ELSE
+    PERFORM fail('get_available_jobs() function missing');
+  END IF;
+END;
+$$;
 
-SELECT has_function('public', 'claim_delivery', 1,
-  'claim_delivery() function exists');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'claim_delivery'
+      AND p.pronargs = 1
+  ) THEN
+    PERFORM pass('claim_delivery() function exists');
+  ELSE
+    PERFORM fail('claim_delivery() function missing');
+  END IF;
+END;
+$$;
 
-SELECT has_function('public', 'advance_delivery_status', 2,
-  'advance_delivery_status() function exists');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'advance_delivery_status'
+      AND p.pronargs = 2
+  ) THEN
+    PERFORM pass('advance_delivery_status() function exists');
+  ELSE
+    PERFORM fail('advance_delivery_status() function missing');
+  END IF;
+END;
+$$;
 
 -- ============================================================================
 -- Test 10: Trust column freeze triggers
