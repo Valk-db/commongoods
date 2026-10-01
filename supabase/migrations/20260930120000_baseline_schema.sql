@@ -1277,8 +1277,8 @@ GRANT EXECUTE ON FUNCTION public.validate_config_constraints(jsonb) TO service_r
 
 -- preview_config_impact
 CREATE OR REPLACE FUNCTION public.preview_config_impact(
-  p_days_lookback integer DEFAULT 30,
-  p_proposed jsonb
+  p_proposed jsonb,
+  p_days_lookback integer DEFAULT 30
 )
 RETURNS TABLE (
   metric text,
@@ -1314,7 +1314,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.preview_config_impact(integer, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.preview_config_impact(jsonb, integer) TO service_role;
 
 -- ----------------------------------------------------------------------------
 -- 12. Auth hook
