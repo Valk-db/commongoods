@@ -21,7 +21,27 @@ CREATE TYPE public.delivery_stage AS ENUM (
 );
 
 -- ----------------------------------------------------------------------------
--- 3. Private schema functions (must exist before tables that reference them)
+-- 3. Core tables (must exist before private functions that reference them)
+-- ----------------------------------------------------------------------------
+
+-- profiles (extends auth.users) - MUST BE FIRST since private functions reference it
+CREATE TABLE public.profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  role text NOT NULL CHECK (role IN ('customer', 'driver', 'partner', 'admin')) DEFAULT 'customer',
+  full_name text,
+  phone text,
+  is_admin boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  cancellation_rate numeric(5,4),
+  historical_tip_ratio numeric(5,4),
+  lifetime_deliveries integer,
+  priority_score numeric(10,4)
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- ----------------------------------------------------------------------------
+-- 4. Private schema functions (now that profiles exists)
 -- ----------------------------------------------------------------------------
 CREATE SCHEMA IF NOT EXISTS private;
 
@@ -65,24 +85,8 @@ AS $$
 $$;
 
 -- ----------------------------------------------------------------------------
--- 4. Core tables
+-- 5. Policies and triggers for profiles
 -- ----------------------------------------------------------------------------
-
--- profiles (extends auth.users)
-CREATE TABLE public.profiles (
-  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role text NOT NULL CHECK (role IN ('customer', 'driver', 'partner', 'admin')) DEFAULT 'customer',
-  full_name text,
-  phone text,
-  is_admin boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  cancellation_rate numeric(5,4),
-  historical_tip_ratio numeric(5,4),
-  lifetime_deliveries integer,
-  priority_score numeric(10,4)
-);
-
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "profiles_select_own" ON public.profiles
   FOR SELECT USING (id = auth.uid() OR private.is_admin());
