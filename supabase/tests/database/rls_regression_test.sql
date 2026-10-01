@@ -23,13 +23,14 @@ DECLARE
   v_error_code text;
 BEGIN
   BEGIN
+    -- Try to insert profile with non-existent user_id - FK should fail
     INSERT INTO public.profiles (id, role, is_admin) VALUES (gen_random_uuid(), 'customer', true);
     RAISE EXCEPTION 'Expected FK violation';
   EXCEPTION WHEN foreign_key_violation THEN
     v_error_code := SQLSTATE;
   END;
   IF v_error_code = '23503' THEN
-    PERFORM pass('INSERT with is_admin=true should fail (FK violation first)');
+    PERFORM pass('INSERT with non-existent user_id should fail (FK violation)');
   ELSE
     RAISE EXCEPTION 'Expected FK violation, got %', v_error_code;
   END IF;
@@ -47,8 +48,8 @@ BEGIN
   VALUES (gen_random_uuid(), 'test_role_change_' || gen_random_uuid() || '@example.com', 'test_hash', now(), jsonb_build_object('full_name', 'Test User'))
   RETURNING id INTO v_user_id;
 
-  INSERT INTO public.profiles (id, role, full_name)
-  VALUES (v_user_id, 'customer', 'Test User');
+  -- Trigger handle_new_user() auto-creates profile, so we just update it
+  UPDATE public.profiles SET role = 'customer', full_name = 'Test User' WHERE id = v_user_id;
 
   -- Try to update role - should be blocked by trigger
   BEGIN
@@ -77,8 +78,8 @@ BEGIN
   VALUES (gen_random_uuid(), 'test_admin_change_' || gen_random_uuid() || '@example.com', 'test_hash', now(), jsonb_build_object('full_name', 'Test User'))
   RETURNING id INTO v_user_id;
 
-  INSERT INTO public.profiles (id, role, full_name, is_admin)
-  VALUES (v_user_id, 'customer', 'Test User', false);
+  -- Trigger handle_new_user() auto-creates profile, so we just update it
+  UPDATE public.profiles SET role = 'customer', full_name = 'Test User', is_admin = false WHERE id = v_user_id;
 
   -- Try to update is_admin - should be blocked by trigger
   BEGIN
@@ -229,7 +230,8 @@ BEGIN
   INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at)
   VALUES (gen_random_uuid(), 'test_driver_freeze_' || gen_random_uuid() || '@example.com', 'hash', now())
   RETURNING id INTO v_driver_id;
-  INSERT INTO public.profiles (id, role) VALUES (v_driver_id, 'driver');
+  -- Trigger handle_new_user() auto-creates profile
+  UPDATE public.profiles SET role = 'driver' WHERE id = v_driver_id;
   INSERT INTO public.drivers (profile_id, approved) VALUES (v_driver_id, false);
   BEGIN
     UPDATE public.drivers SET approved = true WHERE profile_id = v_driver_id;
