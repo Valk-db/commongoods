@@ -54,17 +54,33 @@ jobs:
           version: '2.31.0'
 
       - name: Start local Supabase (applies all migrations from scratch)
-        run: supabase start --workdir ./supabase
+        run: supabase start
+
+      - name: Verify every migration was applied
+        run: |
+          expected=$(ls supabase/migrations/*.sql | wc -l)
+          db=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          applied=$(docker exec "$db" psql -U postgres -tAc "select count(*) from supabase_migrations.schema_migrations" | tr -d ' ')
+          echo "expected=$expected applied=$applied"
+          test "$expected" -eq "$applied"
 
       - name: Run pgTAP tests
-        run: supabase test db tests
-        working-directory: ./supabase
+        run: |
+          set -o pipefail
+          supabase test db 2>&1 | tee /tmp/pgtap.log
 
       - name: Generated types must match committed types
         run: |
-          supabase gen types typescript --local > /tmp/supabase.types.ts
-          diff -u ../lib/supabase.types.ts /tmp/supabase.types.ts
-        working-directory: ./supabase
+          supabase gen types typescript --local --schema public > /tmp/supabase.types.ts
+          diff -u lib/supabase.types.ts /tmp/supabase.types.ts
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          echo "::error title=pgTAP output::$(tail -n 40 /tmp/pgtap.log 2>/dev/null | tr '\n' ' ' | cut -c1-1500)"
+          docker ps -a --format '{{.Names}} {{.Status}}'
+          db=$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1)
+          echo "::error title=DB log::$(docker logs --tail 40 "$db" 2>&1 | tr '\n' ' ' | cut -c1-1500)"
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -84,19 +100,26 @@ jobs:
           version: '2.31.0'
 
       - name: Start local Supabase
-        run: supabase start --workdir ./supabase
+        run: supabase start
 
       - name: Serve Edge Functions with mock routing
         run: |
-          printf 'ROUTING_PROVIDER=mock\n' > functions/.env
-          supabase functions serve --env-file functions/.env --workdir ./supabase > /tmp/functions.log 2>&1 &
-          sleep 15
+          printf 'ROUTING_PROVIDER=mock\n' > supabase/functions/.env
+          nohup supabase functions serve --env-file supabase/functions/.env > /tmp/functions.log 2>&1 &
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:54321/functions/v1/get_quote || true)
+            if [ "$code" != "000" ]; then break; fi
+            sleep 2
+          done
 
       - name: Run integration tests
         run: |
-          eval "$(supabase status -o env --workdir ./supabase | sed 's/^/export /')"
-          npx vitest run supabase/tests/integration/
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          npx vitest run --config supabase/tests/integration/vitest.config.ts 2>&1 | tee /tmp/integration.log
 
-      - name: Show function logs on failure
+      - name: Diagnostics on failure
         if: failure()
-        run: cat /tmp/functions.log
+        run: |
+          echo "::error title=Integration output::$(tail -n 40 /tmp/integration.log 2>/dev/null | tr '\n' ' ' | cut -c1-1500)"
+          echo "::error title=Functions log::$(tail -n 40 /tmp/functions.log 2>/dev/null | tr '\n' ' ' | cut -c1-1500)"

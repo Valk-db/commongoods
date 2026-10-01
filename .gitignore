@@ -45,3 +45,6 @@ app-example
 
 # archives
 *.zip
+
+# Supabase temp
+supabase/.temp/

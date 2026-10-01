@@ -1,3 +1,5 @@
+project_id = "commongoods"
+
 [db.migrations]
 schema_paths = ["migrations"]
 
