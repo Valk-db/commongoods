@@ -214,7 +214,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_table_privilege('anon', 'public.profiles', 'SELECT') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.table_privileges
+    WHERE grantee = 'anon'
+      AND table_schema = 'public'
+      AND table_name = 'profiles'
+      AND privilege_type = 'SELECT'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot SELECT profiles');
   ELSE
@@ -227,7 +233,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_table_privilege('anon', 'public.deliveries', 'SELECT') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.table_privileges
+    WHERE grantee = 'anon'
+      AND table_schema = 'public'
+      AND table_name = 'deliveries'
+      AND privilege_type = 'SELECT'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot SELECT deliveries');
   ELSE
@@ -240,7 +252,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_table_privilege('anon', 'public.drivers', 'SELECT') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.table_privileges
+    WHERE grantee = 'anon'
+      AND table_schema = 'public'
+      AND table_name = 'drivers'
+      AND privilege_type = 'SELECT'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot SELECT drivers');
   ELSE
@@ -253,7 +271,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_table_privilege('anon', 'public.earnings', 'SELECT') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.table_privileges
+    WHERE grantee = 'anon'
+      AND table_schema = 'public'
+      AND table_name = 'earnings'
+      AND privilege_type = 'SELECT'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot SELECT earnings');
   ELSE
@@ -266,7 +290,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_table_privilege('anon', 'public.referral_codes', 'SELECT') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.table_privileges
+    WHERE grantee = 'anon'
+      AND table_schema = 'public'
+      AND table_name = 'referral_codes'
+      AND privilege_type = 'SELECT'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot SELECT referral_codes');
   ELSE
@@ -279,7 +309,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_table_privilege('anon', 'public.partner_applications', 'SELECT') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.table_privileges
+    WHERE grantee = 'anon'
+      AND table_schema = 'public'
+      AND table_name = 'partner_applications'
+      AND privilege_type = 'SELECT'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot SELECT partner_applications');
   ELSE
@@ -295,7 +331,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_function_privilege('anon', 'public.is_admin', 'execute') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.routine_privileges
+    WHERE grantee = 'anon'
+      AND routine_schema = 'public'
+      AND routine_name = 'is_admin'
+      AND privilege_type = 'EXECUTE'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot EXECUTE is_admin()');
   ELSE
@@ -308,7 +350,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_function_privilege('anon', 'public.current_role_is', 'execute') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.routine_privileges
+    WHERE grantee = 'anon'
+      AND routine_schema = 'public'
+      AND routine_name = 'current_role_is'
+      AND privilege_type = 'EXECUTE'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot EXECUTE current_role_is()');
   ELSE
@@ -321,7 +369,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_function_privilege('anon', 'public.get_my_role', 'execute') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.routine_privileges
+    WHERE grantee = 'anon'
+      AND routine_schema = 'public'
+      AND routine_name = 'get_my_role'
+      AND privilege_type = 'EXECUTE'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot EXECUTE get_my_role()');
   ELSE
@@ -334,7 +388,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_function_privilege('anon', 'public.handle_new_user', 'execute') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.routine_privileges
+    WHERE grantee = 'anon'
+      AND routine_schema = 'public'
+      AND routine_name = 'handle_new_user'
+      AND privilege_type = 'EXECUTE'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot EXECUTE handle_new_user()');
   ELSE
@@ -347,7 +407,13 @@ DO $$
 DECLARE
   v_has_priv boolean;
 BEGIN
-  SELECT has_function_privilege('anon', 'public.check_user_role', 'execute') INTO v_has_priv;
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.routine_privileges
+    WHERE grantee = 'anon'
+      AND routine_schema = 'public'
+      AND routine_name = 'check_user_role'
+      AND privilege_type = 'EXECUTE'
+  ) INTO v_has_priv;
   IF NOT v_has_priv THEN
     PERFORM pass('anon cannot EXECUTE check_user_role()');
   ELSE
