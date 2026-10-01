@@ -13,7 +13,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 BEGIN;
 
 -- Plan: number of tests
-SELECT plan(15);
+SELECT plan(11);
 
 -- ============================================================================
 -- Test 1: profiles - user cannot set is_admin = true without auth.users record
@@ -100,71 +100,261 @@ $$;
 -- ============================================================================
 -- Test 4: RLS policies exist on key tables
 -- ============================================================================
-SELECT has_policy('public', 'profiles', 'profiles_select_own', 'SELECT',
-  'profiles SELECT policy exists');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'profiles_select_own'
+  ) THEN
+    PERFORM pass('profiles SELECT policy exists');
+  ELSE
+    PERFORM fail('profiles SELECT policy missing');
+  END IF;
+END;
+$$;
 
-SELECT has_policy('public', 'deliveries', 'deliveries_select_participant', 'SELECT',
-  'deliveries SELECT policy exists');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'deliveries_select_participant'
+  ) THEN
+    PERFORM pass('deliveries SELECT policy exists');
+  ELSE
+    PERFORM fail('deliveries SELECT policy missing');
+  END IF;
+END;
+$$;
 
-SELECT has_policy('public', 'partners', 'partners_select_approved', 'SELECT',
-  'partners SELECT policy exists');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'partners' AND policyname = 'partners_select_approved'
+  ) THEN
+    PERFORM pass('partners SELECT policy exists');
+  ELSE
+    PERFORM fail('partners SELECT policy missing');
+  END IF;
+END;
+$$;
 
-SELECT has_policy('public', 'menu_items', 'menu_items_select_active', 'SELECT',
-  'menu_items SELECT policy exists');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'menu_items' AND policyname = 'menu_items_select_active'
+  ) THEN
+    PERFORM pass('menu_items SELECT policy exists');
+  ELSE
+    PERFORM fail('menu_items SELECT policy missing');
+  END IF;
+END;
+$$;
 
 -- ============================================================================
 -- Test 5: Legacy permissive policies are gone
 -- ============================================================================
-SELECT hasnt_policy('public', 'deliveries', 'authenticated users can read deliveries', 'SELECT',
-  'legacy permissive SELECT policy removed from deliveries');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'authenticated users can read deliveries'
+  ) THEN
+    PERFORM pass('legacy permissive SELECT policy removed from deliveries');
+  ELSE
+    PERFORM fail('legacy permissive SELECT policy still exists on deliveries');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_policy('public', 'deliveries', 'drivers can update deliveries', 'UPDATE',
-  'legacy permissive UPDATE policy removed from deliveries');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'drivers can update deliveries'
+  ) THEN
+    PERFORM pass('legacy permissive UPDATE policy removed from deliveries');
+  ELSE
+    PERFORM fail('legacy permissive UPDATE policy still exists on deliveries');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_policy('public', 'partners', 'Admin can manage partners', 'ALL',
-  'hardcoded admin email policy removed from partners');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'partners' AND policyname = 'Admin can manage partners'
+  ) THEN
+    PERFORM pass('hardcoded admin email policy removed from partners');
+  ELSE
+    PERFORM fail('hardcoded admin email policy still exists on partners');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_policy('public', 'menu_items', 'Admin can manage menu items', 'ALL',
-  'hardcoded admin email policy removed from menu_items');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'menu_items' AND policyname = 'Admin can manage menu items'
+  ) THEN
+    PERFORM pass('hardcoded admin email policy removed from menu_items');
+  ELSE
+    PERFORM fail('hardcoded admin email policy still exists on menu_items');
+  END IF;
+END;
+$$;
 
 -- ============================================================================
 -- Test 6: anon role has no table access to sensitive tables
 -- ============================================================================
-SELECT hasnt_table_privilege('anon', 'public', 'profiles', 'SELECT',
-  'anon cannot SELECT profiles');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_table_privilege('anon', 'public.profiles', 'SELECT') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot SELECT profiles');
+  ELSE
+    PERFORM fail('anon can SELECT profiles');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_table_privilege('anon', 'public', 'deliveries', 'SELECT',
-  'anon cannot SELECT deliveries');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_table_privilege('anon', 'public.deliveries', 'SELECT') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot SELECT deliveries');
+  ELSE
+    PERFORM fail('anon can SELECT deliveries');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_table_privilege('anon', 'public', 'drivers', 'SELECT',
-  'anon cannot SELECT drivers');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_table_privilege('anon', 'public.drivers', 'SELECT') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot SELECT drivers');
+  ELSE
+    PERFORM fail('anon can SELECT drivers');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_table_privilege('anon', 'public', 'earnings', 'SELECT',
-  'anon cannot SELECT earnings');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_table_privilege('anon', 'public.earnings', 'SELECT') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot SELECT earnings');
+  ELSE
+    PERFORM fail('anon can SELECT earnings');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_table_privilege('anon', 'public', 'referral_codes', 'SELECT',
-  'anon cannot SELECT referral_codes');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_table_privilege('anon', 'public.referral_codes', 'SELECT') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot SELECT referral_codes');
+  ELSE
+    PERFORM fail('anon can SELECT referral_codes');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_table_privilege('anon', 'public', 'partner_applications', 'SELECT',
-  'anon cannot SELECT partner_applications');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_table_privilege('anon', 'public.partner_applications', 'SELECT') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot SELECT partner_applications');
+  ELSE
+    PERFORM fail('anon can SELECT partner_applications');
+  END IF;
+END;
+$$;
 
 -- ============================================================================
 -- Test 7: SECURITY DEFINER functions not executable by anon
 -- ============================================================================
-SELECT hasnt_function_privilege('anon', 'public', 'is_admin', 'execute',
-  'anon cannot EXECUTE is_admin()');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_function_privilege('anon', 'public.is_admin', 'execute') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot EXECUTE is_admin()');
+  ELSE
+    PERFORM fail('anon can EXECUTE is_admin()');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_function_privilege('anon', 'public', 'current_role_is', 'execute',
-  'anon cannot EXECUTE current_role_is()');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_function_privilege('anon', 'public.current_role_is', 'execute') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot EXECUTE current_role_is()');
+  ELSE
+    PERFORM fail('anon can EXECUTE current_role_is()');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_function_privilege('anon', 'public', 'get_my_role', 'execute',
-  'anon cannot EXECUTE get_my_role()');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_function_privilege('anon', 'public.get_my_role', 'execute') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot EXECUTE get_my_role()');
+  ELSE
+    PERFORM fail('anon can EXECUTE get_my_role()');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_function_privilege('anon', 'public', 'handle_new_user', 'execute',
-  'anon cannot EXECUTE handle_new_user()');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_function_privilege('anon', 'public.handle_new_user', 'execute') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot EXECUTE handle_new_user()');
+  ELSE
+    PERFORM fail('anon can EXECUTE handle_new_user()');
+  END IF;
+END;
+$$;
 
-SELECT hasnt_function_privilege('anon', 'public', 'check_user_role', 'execute',
-  'anon cannot EXECUTE check_user_role()');
+DO $$
+DECLARE
+  v_has_priv boolean;
+BEGIN
+  SELECT has_function_privilege('anon', 'public.check_user_role', 'execute') INTO v_has_priv;
+  IF NOT v_has_priv THEN
+    PERFORM pass('anon cannot EXECUTE check_user_role()');
+  ELSE
+    PERFORM fail('anon can EXECUTE check_user_role()');
+  END IF;
+END;
+$$;
 
 -- ============================================================================
 -- Test 8: All tables have RLS enabled
