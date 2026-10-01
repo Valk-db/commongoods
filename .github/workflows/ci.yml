@@ -54,7 +54,7 @@ jobs:
           version: '2.31.0'
 
       - name: Start local Supabase (applies all migrations from scratch)
-        run: supabase start
+        run: supabase db reset --linked=false
 
       - name: Verify every migration was applied
         run: |
