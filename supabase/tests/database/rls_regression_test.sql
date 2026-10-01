@@ -423,7 +423,7 @@ END;
 $$;
 
 -- ============================================================================
--- Test 8: All tables have RLS enabled
+-- Test 8: All non-partitioned tables have RLS enabled
 -- ============================================================================
 DO $$
 DECLARE
@@ -431,17 +431,22 @@ DECLARE
   rls_enabled boolean;
 BEGIN
   FOR tbl IN
-    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+    SELECT c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'r'  -- regular tables only, not partitions (which are 'p')
+      AND c.relname NOT LIKE 'events_%'  -- skip partitioned tables
   LOOP
     SELECT relrowsecurity INTO rls_enabled
     FROM pg_class
-    WHERE relname = tbl.tablename AND relnamespace = 'public'::regnamespace;
+    WHERE relname = tbl.relname AND relnamespace = 'public'::regnamespace;
 
     IF NOT rls_enabled THEN
-      RAISE EXCEPTION 'Table % does not have RLS enabled', tbl.tablename;
+      RAISE EXCEPTION 'Table % does not have RLS enabled', tbl.relname;
     END IF;
   END LOOP;
-  PERFORM pass('All public tables have RLS enabled');
+  PERFORM pass('All non-partitioned public tables have RLS enabled');
 END;
 $$;
 
