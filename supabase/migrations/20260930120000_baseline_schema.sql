@@ -868,7 +868,7 @@ CREATE POLICY "referral_codes_select_authenticated" ON public.referral_codes
   FOR SELECT TO authenticated USING (true);
 
 CREATE POLICY "referral_codes_insert_admin" ON public.referral_codes
-  FOR INSERT USING (private.is_admin()) WITH CHECK (private.is_admin());
+  FOR INSERT WITH CHECK (private.is_admin());
 
 -- freeze trigger
 CREATE OR REPLACE FUNCTION private.freeze_referral_codes()
