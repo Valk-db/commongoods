@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 -- ----------------------------------------------------------------------------
 
 -- Plan: number of tests
-SELECT plan(18);
+SELECT plan(24);
 
 -- ============================================================================
 -- Test 1: profiles - user cannot set is_admin = true without auth.users record
@@ -142,38 +142,38 @@ SELECT CASE WHEN NOT EXISTS (
 ) THEN pass('hardcoded admin email policy removed from menu_items') ELSE fail('hardcoded admin email policy still exists on menu_items') END;
 
 -- ============================================================================
--- Test 6: GRANTs are only to authenticated/service_role, not anon
+-- Test 6: GRANTs to authenticated/service_role (RLS controls access, not GRANTs)
 -- ============================================================================
-SELECT CASE WHEN NOT EXISTS (
+SELECT CASE WHEN EXISTS (
   SELECT 1 FROM information_schema.table_privileges
-  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'profiles' AND privilege_type = 'SELECT'
-) THEN pass('anon has no GRANT SELECT on profiles') ELSE fail('anon has GRANT SELECT on profiles') END;
+  WHERE grantee = 'authenticated' AND table_schema = 'public' AND table_name = 'profiles' AND privilege_type = 'SELECT'
+) THEN pass('authenticated has GRANT SELECT on profiles') ELSE fail('authenticated missing GRANT SELECT on profiles') END;
 
-SELECT CASE WHEN NOT EXISTS (
+SELECT CASE WHEN EXISTS (
   SELECT 1 FROM information_schema.table_privileges
-  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'deliveries' AND privilege_type = 'SELECT'
-) THEN pass('anon has no GRANT SELECT on deliveries') ELSE fail('anon has GRANT SELECT on deliveries') END;
+  WHERE grantee = 'authenticated' AND table_schema = 'public' AND table_name = 'deliveries' AND privilege_type = 'SELECT'
+) THEN pass('authenticated has GRANT SELECT on deliveries') ELSE fail('authenticated missing GRANT SELECT on deliveries') END;
 
-SELECT CASE WHEN NOT EXISTS (
+SELECT CASE WHEN EXISTS (
   SELECT 1 FROM information_schema.table_privileges
-  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'drivers' AND privilege_type = 'SELECT'
-) THEN pass('anon has no GRANT SELECT on drivers') ELSE fail('anon has GRANT SELECT on drivers') END;
+  WHERE grantee = 'authenticated' AND table_schema = 'public' AND table_name = 'drivers' AND privilege_type = 'SELECT'
+) THEN pass('authenticated has GRANT SELECT on drivers') ELSE fail('authenticated missing GRANT SELECT on drivers') END;
 
-SELECT CASE WHEN NOT EXISTS (
+SELECT CASE WHEN EXISTS (
   SELECT 1 FROM information_schema.table_privileges
-  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'earnings' AND privilege_type = 'SELECT'
-) THEN pass('anon has no GRANT SELECT on earnings') ELSE fail('anon has GRANT SELECT on earnings') END;
+  WHERE grantee = 'authenticated' AND table_schema = 'public' AND table_name = 'earnings' AND privilege_type = 'SELECT'
+) THEN pass('authenticated has GRANT SELECT on earnings') ELSE fail('authenticated missing GRANT SELECT on earnings') END;
 
-SELECT CASE WHEN NOT EXISTS (
+SELECT CASE WHEN EXISTS (
   SELECT 1 FROM information_schema.table_privileges
-  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'referral_codes' AND privilege_type = 'SELECT'
-) THEN pass('anon has no GRANT SELECT on referral_codes') ELSE fail('anon has GRANT SELECT on referral_codes') END;
+  WHERE grantee = 'authenticated' AND table_schema = 'public' AND table_name = 'referral_codes' AND privilege_type = 'SELECT'
+) THEN pass('authenticated has GRANT SELECT on referral_codes') ELSE fail('authenticated missing GRANT SELECT on referral_codes') END;
 
--- partner_applications has GRANT INSERT to anon but not SELECT
-SELECT CASE WHEN NOT EXISTS (
+-- partner_applications: anon can INSERT (for applications), authenticated can SELECT
+SELECT CASE WHEN EXISTS (
   SELECT 1 FROM information_schema.table_privileges
-  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'partner_applications' AND privilege_type = 'SELECT'
-) THEN pass('anon has no GRANT SELECT on partner_applications') ELSE fail('anon has GRANT SELECT on partner_applications') END;
+  WHERE grantee = 'authenticated' AND table_schema = 'public' AND table_name = 'partner_applications' AND privilege_type = 'SELECT'
+) THEN pass('authenticated has GRANT SELECT on partner_applications') ELSE fail('authenticated missing GRANT SELECT on partner_applications') END;
 
 -- ============================================================================
 -- Test 7: SECURITY DEFINER functions not executable by anon
