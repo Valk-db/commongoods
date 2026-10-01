@@ -98,327 +98,109 @@ $$;
 -- ============================================================================
 -- Test 4: RLS policies exist on key tables
 -- ============================================================================
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'profiles_select_own'
-  ) THEN
-    PERFORM pass('profiles SELECT policy exists');
-  ELSE
-    PERFORM fail('profiles SELECT policy missing');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'profiles_select_own'
+) THEN pass('profiles SELECT policy exists') ELSE fail('profiles SELECT policy missing') END;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'deliveries_select_participant'
-  ) THEN
-    PERFORM pass('deliveries SELECT policy exists');
-  ELSE
-    PERFORM fail('deliveries SELECT policy missing');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'deliveries_select_participant'
+) THEN pass('deliveries SELECT policy exists') ELSE fail('deliveries SELECT policy missing') END;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'partners' AND policyname = 'partners_select_approved'
-  ) THEN
-    PERFORM pass('partners SELECT policy exists');
-  ELSE
-    PERFORM fail('partners SELECT policy missing');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'partners' AND policyname = 'partners_select_approved'
+) THEN pass('partners SELECT policy exists') ELSE fail('partners SELECT policy missing') END;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'menu_items' AND policyname = 'menu_items_select_active'
-  ) THEN
-    PERFORM pass('menu_items SELECT policy exists');
-  ELSE
-    PERFORM fail('menu_items SELECT policy missing');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'menu_items' AND policyname = 'menu_items_select_active'
+) THEN pass('menu_items SELECT policy exists') ELSE fail('menu_items SELECT policy missing') END;
 
 -- ============================================================================
 -- Test 5: Legacy permissive policies are gone
 -- ============================================================================
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'authenticated users can read deliveries'
-  ) THEN
-    PERFORM pass('legacy permissive SELECT policy removed from deliveries');
-  ELSE
-    PERFORM fail('legacy permissive SELECT policy still exists on deliveries');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'authenticated users can read deliveries'
+) THEN pass('legacy permissive SELECT policy removed from deliveries') ELSE fail('legacy permissive SELECT policy still exists on deliveries') END;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'drivers can update deliveries'
-  ) THEN
-    PERFORM pass('legacy permissive UPDATE policy removed from deliveries');
-  ELSE
-    PERFORM fail('legacy permissive UPDATE policy still exists on deliveries');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'deliveries' AND policyname = 'drivers can update deliveries'
+) THEN pass('legacy permissive UPDATE policy removed from deliveries') ELSE fail('legacy permissive UPDATE policy still exists on deliveries') END;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'partners' AND policyname = 'Admin can manage partners'
-  ) THEN
-    PERFORM pass('hardcoded admin email policy removed from partners');
-  ELSE
-    PERFORM fail('hardcoded admin email policy still exists on partners');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'partners' AND policyname = 'Admin can manage partners'
+) THEN pass('hardcoded admin email policy removed from partners') ELSE fail('hardcoded admin email policy still exists on partners') END;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'menu_items' AND policyname = 'Admin can manage menu items'
-  ) THEN
-    PERFORM pass('hardcoded admin email policy removed from menu_items');
-  ELSE
-    PERFORM fail('hardcoded admin email policy still exists on menu_items');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'menu_items' AND policyname = 'Admin can manage menu items'
+) THEN pass('hardcoded admin email policy removed from menu_items') ELSE fail('hardcoded admin email policy still exists on menu_items') END;
 
 -- ============================================================================
 -- Test 6: anon role has no table access to sensitive tables
 -- ============================================================================
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.table_privileges
-    WHERE grantee = 'anon'
-      AND table_schema = 'public'
-      AND table_name = 'profiles'
-      AND privilege_type = 'SELECT'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot SELECT profiles');
-  ELSE
-    PERFORM fail('anon can SELECT profiles');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.table_privileges
+  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'profiles' AND privilege_type = 'SELECT'
+) THEN pass('anon cannot SELECT profiles') ELSE fail('anon can SELECT profiles') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.table_privileges
-    WHERE grantee = 'anon'
-      AND table_schema = 'public'
-      AND table_name = 'deliveries'
-      AND privilege_type = 'SELECT'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot SELECT deliveries');
-  ELSE
-    PERFORM fail('anon can SELECT deliveries');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.table_privileges
+  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'deliveries' AND privilege_type = 'SELECT'
+) THEN pass('anon cannot SELECT deliveries') ELSE fail('anon can SELECT deliveries') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.table_privileges
-    WHERE grantee = 'anon'
-      AND table_schema = 'public'
-      AND table_name = 'drivers'
-      AND privilege_type = 'SELECT'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot SELECT drivers');
-  ELSE
-    PERFORM fail('anon can SELECT drivers');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.table_privileges
+  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'drivers' AND privilege_type = 'SELECT'
+) THEN pass('anon cannot SELECT drivers') ELSE fail('anon can SELECT drivers') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.table_privileges
-    WHERE grantee = 'anon'
-      AND table_schema = 'public'
-      AND table_name = 'earnings'
-      AND privilege_type = 'SELECT'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot SELECT earnings');
-  ELSE
-    PERFORM fail('anon can SELECT earnings');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.table_privileges
+  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'earnings' AND privilege_type = 'SELECT'
+) THEN pass('anon cannot SELECT earnings') ELSE fail('anon can SELECT earnings') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.table_privileges
-    WHERE grantee = 'anon'
-      AND table_schema = 'public'
-      AND table_name = 'referral_codes'
-      AND privilege_type = 'SELECT'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot SELECT referral_codes');
-  ELSE
-    PERFORM fail('anon can SELECT referral_codes');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.table_privileges
+  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'referral_codes' AND privilege_type = 'SELECT'
+) THEN pass('anon cannot SELECT referral_codes') ELSE fail('anon can SELECT referral_codes') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.table_privileges
-    WHERE grantee = 'anon'
-      AND table_schema = 'public'
-      AND table_name = 'partner_applications'
-      AND privilege_type = 'SELECT'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot SELECT partner_applications');
-  ELSE
-    PERFORM fail('anon can SELECT partner_applications');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.table_privileges
+  WHERE grantee = 'anon' AND table_schema = 'public' AND table_name = 'partner_applications' AND privilege_type = 'SELECT'
+) THEN pass('anon cannot SELECT partner_applications') ELSE fail('anon can SELECT partner_applications') END;
 
 -- ============================================================================
 -- Test 7: SECURITY DEFINER functions not executable by anon
 -- ============================================================================
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.routine_privileges
-    WHERE grantee = 'anon'
-      AND routine_schema = 'public'
-      AND routine_name = 'is_admin'
-      AND privilege_type = 'EXECUTE'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot EXECUTE is_admin()');
-  ELSE
-    PERFORM fail('anon can EXECUTE is_admin()');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.routine_privileges
+  WHERE grantee = 'anon' AND routine_schema = 'public' AND routine_name = 'is_admin' AND privilege_type = 'EXECUTE'
+) THEN pass('anon cannot EXECUTE is_admin()') ELSE fail('anon can EXECUTE is_admin()') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.routine_privileges
-    WHERE grantee = 'anon'
-      AND routine_schema = 'public'
-      AND routine_name = 'current_role_is'
-      AND privilege_type = 'EXECUTE'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot EXECUTE current_role_is()');
-  ELSE
-    PERFORM fail('anon can EXECUTE current_role_is()');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.routine_privileges
+  WHERE grantee = 'anon' AND routine_schema = 'public' AND routine_name = 'current_role_is' AND privilege_type = 'EXECUTE'
+) THEN pass('anon cannot EXECUTE current_role_is()') ELSE fail('anon can EXECUTE current_role_is()') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.routine_privileges
-    WHERE grantee = 'anon'
-      AND routine_schema = 'public'
-      AND routine_name = 'get_my_role'
-      AND privilege_type = 'EXECUTE'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot EXECUTE get_my_role()');
-  ELSE
-    PERFORM fail('anon can EXECUTE get_my_role()');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.routine_privileges
+  WHERE grantee = 'anon' AND routine_schema = 'public' AND routine_name = 'get_my_role' AND privilege_type = 'EXECUTE'
+) THEN pass('anon cannot EXECUTE get_my_role()') ELSE fail('anon can EXECUTE get_my_role()') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.routine_privileges
-    WHERE grantee = 'anon'
-      AND routine_schema = 'public'
-      AND routine_name = 'handle_new_user'
-      AND privilege_type = 'EXECUTE'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot EXECUTE handle_new_user()');
-  ELSE
-    PERFORM fail('anon can EXECUTE handle_new_user()');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.routine_privileges
+  WHERE grantee = 'anon' AND routine_schema = 'public' AND routine_name = 'handle_new_user' AND privilege_type = 'EXECUTE'
+) THEN pass('anon cannot EXECUTE handle_new_user()') ELSE fail('anon can EXECUTE handle_new_user()') END;
 
-DO $$
-DECLARE
-  v_has_priv boolean;
-BEGIN
-  SELECT EXISTS (
-    SELECT 1 FROM information_schema.routine_privileges
-    WHERE grantee = 'anon'
-      AND routine_schema = 'public'
-      AND routine_name = 'check_user_role'
-      AND privilege_type = 'EXECUTE'
-  ) INTO v_has_priv;
-  IF NOT v_has_priv THEN
-    PERFORM pass('anon cannot EXECUTE check_user_role()');
-  ELSE
-    PERFORM fail('anon can EXECUTE check_user_role()');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN NOT EXISTS (
+  SELECT 1 FROM information_schema.routine_privileges
+  WHERE grantee = 'anon' AND routine_schema = 'public' AND routine_name = 'check_user_role' AND privilege_type = 'EXECUTE'
+) THEN pass('anon cannot EXECUTE check_user_role()') ELSE fail('anon can EXECUTE check_user_role()') END;
 
 -- ============================================================================
 -- Test 8: All non-partitioned tables have RLS enabled
@@ -451,53 +233,29 @@ $$;
 -- ============================================================================
 -- Test 9: Key functions exist
 -- ============================================================================
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname = 'get_available_jobs'
-      AND p.pronargs = 0
-  ) THEN
-    PERFORM pass('get_available_jobs() function exists');
-  ELSE
-    PERFORM fail('get_available_jobs() function missing');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'get_available_jobs'
+    AND p.pronargs = 0
+) THEN pass('get_available_jobs() function exists') ELSE fail('get_available_jobs() function missing') END;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname = 'claim_delivery'
-      AND p.pronargs = 1
-  ) THEN
-    PERFORM pass('claim_delivery() function exists');
-  ELSE
-    PERFORM fail('claim_delivery() function missing');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'claim_delivery'
+    AND p.pronargs = 1
+) THEN pass('claim_delivery() function exists') ELSE fail('claim_delivery() function missing') END;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname = 'advance_delivery_status'
-      AND p.pronargs = 2
-  ) THEN
-    PERFORM pass('advance_delivery_status() function exists');
-  ELSE
-    PERFORM fail('advance_delivery_status() function missing');
-  END IF;
-END;
-$$;
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'advance_delivery_status'
+    AND p.pronargs = 2
+) THEN pass('advance_delivery_status() function exists') ELSE fail('advance_delivery_status() function missing') END;
 
 -- ============================================================================
 -- Test 10: Trust column freeze triggers
@@ -554,7 +312,3 @@ DROP FUNCTION IF EXISTS test_create_user(text, text);
 DROP FUNCTION IF EXISTS test_cleanup_user(uuid);
 
 SELECT * FROM finish();
-
--- ============================================================================
--- End of tests
--- ============================================================================
