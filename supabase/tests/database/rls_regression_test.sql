@@ -10,8 +10,6 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 -- Test Suite: RLS and Security
 -- ----------------------------------------------------------------------------
 
-BEGIN;
-
 -- Plan: number of tests
 SELECT plan(28);
 
@@ -556,7 +554,6 @@ DROP FUNCTION IF EXISTS test_create_user(text, text);
 DROP FUNCTION IF EXISTS test_cleanup_user(uuid);
 
 SELECT * FROM finish();
-ROLLBACK;
 
 -- ============================================================================
 -- End of tests
