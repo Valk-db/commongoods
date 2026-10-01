@@ -57,7 +57,8 @@ jobs:
         run: supabase start --workdir ./supabase
 
       - name: Run pgTAP tests
-        run: supabase test db --workdir ./supabase tests
+        run: supabase test db tests
+        working-directory: ./supabase
 
       - name: Generated types must match committed types
         run: |
