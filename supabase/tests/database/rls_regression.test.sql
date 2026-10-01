@@ -16,44 +16,6 @@ BEGIN;
 SELECT plan(15);
 
 -- ============================================================================
--- Helper functions for test setup
--- ============================================================================
-
--- Create a test user and return their ID
-CREATE OR REPLACE FUNCTION test_create_user(p_email text, p_role text DEFAULT 'customer')
-RETURNS uuid
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, private
-AS $$
-DECLARE
-  v_user_id uuid;
-BEGIN
-  INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
-  VALUES (gen_random_uuid(), p_email, 'test_hash', now(), jsonb_build_object('full_name', 'Test User'))
-  RETURNING id INTO v_user_id;
-
-  -- Create profile
-  INSERT INTO public.profiles (id, role, full_name)
-  VALUES (v_user_id, p_role, 'Test User');
-
-  RETURN v_user_id;
-END;
-$$;
-
--- Clean up test user
-CREATE OR REPLACE FUNCTION test_cleanup_user(p_user_id uuid)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, private
-AS $$
-BEGIN
-  DELETE FROM auth.users WHERE id = p_user_id;
-END;
-$$;
-
--- ============================================================================
 -- Test 1: profiles - user cannot set is_admin = true on own row
 -- ============================================================================
 SELECT throws_ok(
@@ -70,7 +32,7 @@ DECLARE
   v_user_id uuid;
 BEGIN
   INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
-  VALUES (gen_random_uuid(), 'test_role_change@example.com', 'test_hash', now(), jsonb_build_object('full_name', 'Test User'))
+  VALUES (gen_random_uuid(), 'test_role_change_' || gen_random_uuid() || '@example.com', 'test_hash', now(), jsonb_build_object('full_name', 'Test User'))
   RETURNING id INTO v_user_id;
 
   INSERT INTO public.profiles (id, role, full_name)
@@ -102,7 +64,7 @@ DECLARE
   v_user_id uuid;
 BEGIN
   INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
-  VALUES (gen_random_uuid(), 'test_admin_change@example.com', 'test_hash', now(), jsonb_build_object('full_name', 'Test User'))
+  VALUES (gen_random_uuid(), 'test_admin_change_' || gen_random_uuid() || '@example.com', 'test_hash', now(), jsonb_build_object('full_name', 'Test User'))
   RETURNING id INTO v_user_id;
 
   INSERT INTO public.profiles (id, role, full_name, is_admin)
@@ -235,7 +197,7 @@ DO $$
 DECLARE
   v_code_id uuid;
 BEGIN
-  INSERT INTO public.referral_codes (code, role) VALUES ('TESTCODE', 'customer') RETURNING id INTO v_code_id;
+  INSERT INTO public.referral_codes (code, role) VALUES ('TESTCODE_' || gen_random_uuid(), 'customer') RETURNING id INTO v_code_id;
   BEGIN
     UPDATE public.referral_codes SET is_active = false WHERE id = v_code_id;
     RAISE EXCEPTION 'Trigger should have blocked is_active change';
@@ -255,7 +217,7 @@ DECLARE
   v_driver_id uuid;
 BEGIN
   INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at)
-  VALUES (gen_random_uuid(), 'test_driver_freeze@example.com', 'hash', now())
+  VALUES (gen_random_uuid(), 'test_driver_freeze_' || gen_random_uuid() || '@example.com', 'hash', now())
   RETURNING id INTO v_driver_id;
   INSERT INTO public.profiles (id, role) VALUES (v_driver_id, 'driver');
   INSERT INTO public.drivers (profile_id, approved) VALUES (v_driver_id, false);
