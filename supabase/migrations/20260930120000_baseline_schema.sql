@@ -752,7 +752,7 @@ CREATE INDEX idx_dispatch_offers_delivery ON public.dispatch_offers (delivery_id
 CREATE INDEX idx_dispatch_offers_driver ON public.dispatch_offers (driver_id);
 CREATE INDEX idx_dispatch_offers_response ON public.dispatch_offers (response);
 
-ALTER TABLE public.dispatch_offers ENABLE ROW LEVEL SECURITY.
+ALTER TABLE public.dispatch_offers ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "dispatch_offers_select_driver" ON public.dispatch_offers
   FOR SELECT USING (driver_id = auth.uid() OR private.is_admin());
